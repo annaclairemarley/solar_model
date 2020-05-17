@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE metadata SYSTEM "http://www.fgdc.gov/metadata/fgdc-std-001-1998.dtd">
+<metadata>
+<idinfo>
+<citation>
+<citeinfo>
+<origin>2008 Climate Change Impacts Assessment</origin>
+<pubdate>2008</pubdate>
+<title>Monthly Projected Net Radiation at the surface, includes long and shortwave (1950-2099)</title>
+<onlink>http://meteora.ucsd.edu/cap/scen08_arcfiles.html</onlink>
+</citeinfo>
+</citation>
+<descript>
+<abstract>The Monthly Projected Net Radiation (NRAD) data sets are part of the downscaled global climate models created for the 2008 California climate change assessment. This includes long and shortwaves. These files are made from daily data and are monthly mean values in  Watt per square meter.  NRAD layers have been created through a Bias Corrected Statistical Downscaling (BCSD) approach and are currently available for the cnrmcm3, gfdlcm21, ncarccsm3, and ncarpcm1 models under the A2 and B1 scenarios. The BCSD data cover 31.9375N to 43.9375N and 124.5625W to 113.0625W. The VIC grid is a 1/8th degree grid so this makes a &quot;box&quot; of 93 longitudes by 97 latitudes. The VIC computations are done over land only. For the 93x97 box there would be a total of 9021 points and 2096 of these would be missing (not land).</abstract>
+<purpose>Recognizing California&#39;s vulnerability to the impacts of climate change, the Governor issued Executive Order S-03-05 on June 1, 2005 mandating the preparation of biennial science reports on the potential impacts of climate change on California and the identification of adaptation options. The Climate Action Team (CAT), headed by the Secretary for Environmental Protection, submits these reports to the Governor and the Legislature.
+
+The first biennial CAT report was released in 2006. The report summarized major findings of the 2006 Climate Change Impacts Assessment which provided a valuable initial overview of climate impacts on key sectors in the state that are expected under alternative greenhouse gas emission scenarios.
+
+The California Energy Commission&#39;s Public Interest Energy Research (PIER) Program is leading an effort to expand, improve and further develop the analysis of projected impacts under multiple climate change scenarios. The findings, based on more than 40 studies, will be presented in a 2008 Climate Change Impact Assessment.
+
+The 2008 Climate Impact Assessment will build on the 2006 study to meet three goals:
+
+    * Improve the assessment of climate changes in the California region and associated impacts on key physical and biological indicators.
+    * Begin to translate these physical and biological impacts into sectoral economic impacts.
+    * Begin to develop and evaluate strategies for key sectors or regions for adapting to climate changes already underway.
+
+The successful coordination and completion of such a large number of studies is a complex, intensive effort requiring the cooperation of many governmental and research entities.
+
+A brief overview of the 2008 Climate Change Impacts Assessment was presented during the 4th Annual Research Conference on Climate Change, held in September 2007. Please click here to download the presentations on this topic. </purpose>
+</descript>
+<timeperd>
+<timeinfo>
+<rngdates>
+  <begdate></begdate>
+  <enddate></enddate>
+</rngdates>
+</timeinfo>
+<current>publication date</current>
+</timeperd>
+<status>
+  <progress>complete</progress>
+  <update>Irregular</update>
+</status>
+<spdom>
+<bounding>
+  <westbc>-124.5625</westbc>
+  <eastbc>-113.0625</eastbc>
+  <northbc>43.9375</northbc>
+  <southbc>31.9375</southbc>
+</bounding>
+</spdom>
+<keywords>
+<theme>
+  <themekey>Net Radiation</themekey>
+</theme>
+<place>
+  <placekey>California</placekey>
+</place>
+</keywords>
+<useconst>The data presented in this tool represent a projection, they are not predictions. These data are meant to illustrate how the climate may change based on a variety of different potential social and economic factors.  This information is being made available for informational purposes only. Users of this information agree by their use to hold blameless the State of California, and its respective officers, employees, agents, contractors, and subcontractors for any liability associated with its use in any form.</useconst>
+<ptcontac>
+<cntinfo>
+<cntorgp>
+  <cntorg>Scripps Institution of Oceanography</cntorg>
+</cntorgp>
+<cntaddr>
+  <city>La Jolla, CA</city>
+</cntaddr>
+<cntemail>mtyree@ucsd.edu</cntemail>
+</cntinfo>
+</ptcontac>
+</idinfo>
+<dataqual>
+<attracc>
+  <attraccr>Reference http://meteora.ucsd.edu/cap/scen08_data.html</attraccr>
+</attracc>
+
+
+</dataqual>
+<spref>
+<horizsys>
+<planar>
+<mapproj>
+  <mapprojn>epsg:4326</mapprojn>
+</mapproj>
+</planar>
+</horizsys>
+</spref>
+<distinfo>
+<distrib>
+<cntinfo>
+<cntorgp>
+  <cntorg>Scripps Institution of Oceanography</cntorg>
+</cntorgp>
+<cntaddr>
+  <city>La Jolla, CA</city>
+</cntaddr>
+<cntemail>mtyree@ucsd.edu</cntemail>
+</cntinfo>
+</distrib>
+<resdesc>Downloadable Data</resdesc>
+</distinfo>
+<metainfo>
+<metstdn>FGDC Content Standards for Digital Geospatial Metadata</metstdn>
+<metstdv>FGDC-STD-001-1998</metstdv>
+</metainfo>
+</metadata>
