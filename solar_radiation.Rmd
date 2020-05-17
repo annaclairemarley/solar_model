@@ -1,0 +1,101 @@
+---
+title: "Solar Insolation"
+author: "AnnaClaire Marley"
+date: "5/17/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# load packages
+library(raster)
+library(maps)
+library(sf)
+library(tidyverse)
+
+```
+
+Net surface radiation 
+Model: CCSM3
+EMission scenario: A2
+Year: 2050
+
+```{r}
+
+# read in projected solar radiation for each month of 2050
+solar_jan <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20500131.tif")
+solar_feb <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20500228.tif")
+solar_mar <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20500331.tif")
+solar_apr <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20500430.tif")
+solar_may <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20500531.tif")
+solar_jun <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20500630.tif")
+solar_jul <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20500731.tif")
+solar_aug <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20500831.tif")
+solar_sep <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20500930.tif")
+solar_oct <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20501031.tif")
+solar_nov <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20501130.tif")
+solar_dec <- raster("./data/nrad_flx_ccsm3a2bcsd/nrad_flx_ccsm3a2bcsd_20501231.tif")
+
+```
+
+```{r}
+
+plot(solar_jan)
+
+```
+
+Crop and mask rasters to California 
+
+```{r}
+# grab US states from maps package
+california <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE)) %>% 
+  filter(ID == "california")
+
+# make the polygon the same CRS as rasters
+california_project <- st_transform(california, crs(solar_jan))
+
+```
+
+```{r}
+# function to crop and mask all rasters to california
+
+# raster: the raster files
+# polygon: california_project
+ca_crop_mask = function(raster, polygon){
+  
+  crop <- crop(raster, polygon)
+  mask <- mask(crop, polygon)
+  
+  return(mask)
+  
+}
+
+```
+
+
+```{r}
+# crop and mask each month
+solar_jan_ca <- ca_crop_mask(solar_jan, california_project)
+solar_feb_ca <- ca_crop_mask(solar_feb, california_project)
+
+
+```
+
+
+Energy output equation
+```{r}
+
+# function to calculate energy output for each month
+energy_output = function(raster){
+  
+  output = raster * 4.5
+  
+  return(output)
+  
+}
+
+```
+
