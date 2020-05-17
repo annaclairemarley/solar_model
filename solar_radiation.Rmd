@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r, include = FALSE}
 # load packages
 library(raster)
 library(maps)
@@ -17,11 +17,14 @@ library(sf)
 library(tidyverse)
 ```
 
-Net surface radiation 
-Model: CCSM3
-Emission scenario: A2
-Year: 2050
+### Calculate projected solar energy output in CA given solar radiation projections
 
+
+Net surface radiation 
+
+* Model: CCSM3
+* Emission scenario: A2
+* Year: 2050
 
 ```{r}
 
@@ -50,7 +53,7 @@ california <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE)) %>%
   filter(ID == "california")
 
 # make the polygon the same CRS as rasters
-california_project <- st_transform(california, crs(solar_jan))
+california_project <- st_transform(california, crs(solar_stack))
 
 ```
 
