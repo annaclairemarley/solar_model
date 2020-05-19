@@ -1,0 +1,129 @@
+---
+title: "land_cover"
+author: "Anna Calle"
+date: "5/17/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load required libraries
+library(raster)
+library(sf)
+library(sp)
+library(foreign)
+```
+
+Set-Up for Downloading Data Using Google Drive File Stream
+```{r}
+# Create a Root to Extract Files 
+if(Sys.info()["sysname"] == "Windows"){ #If operating system is "Windows" use G: Drive
+  team_path <- "G:/"
+} else { # If it is not (i.e. Mac), use the Google Drive File Stream
+  team_path <- "/Volumes/GoogleDrive/"
+}
+
+#Create the Full File Path
+path <- paste0(team_path, "Shared drives/ESM232/Data")
+
+```
+
+# CA Counties
+```{r}
+# Read file
+CA_counties <- read_sf(dsn = paste0(path, "/CA_Counties"),
+                layer = "CA_Counties_TIGER2016")
+# Plot
+plot(CA_counties$geometry)
+
+```
+
+# Transmission lines
+```{r}
+# Read File
+transmission_lines <- read_sf(dsn = paste0(path, "/transmission_lines"),
+                layer = "transmission_lines")
+# Plot
+plot(transmission_lines$geometry)
+```
+
+# Lakes and reservoires
+```{r}
+# Read File
+lakes <- read_sf(dsn = paste0(path, "/NHD_MajorLakesAndReservoirs"),
+                layer = "NHD_MajorLakesAndReservoirs")
+# Plot
+plot(lakes$geometry)
+```
+
+# Major rivers
+```{r}
+# Read File
+rivers <- read_sf(dsn = paste0(path, "/NHD_MajorRivers"),
+                layer = "NHD_MajorRivers") %>% 
+  st_zm(drop = TRUE)
+
+# Plot
+plot(rivers$geometry)
+```
+
+# Land cover
+```{r}
+# Read File
+land_cover <- raster(paste0(path, "/gaplf2011lc_v30_CA/gaplf2011lc_v30_ca.tif"), RAT = TRUE)
+
+# Read dbf
+land_cover_dbf <- read.dbf(paste0(path, "/gaplf2011lc_v30_CA/gaplf2011lc_v30_ca.tif.vat.dbf"))
+
+# Read txt
+land_cover_txt <- read.delim(paste0(path,"/gaplf2011lc_v30_CA/GAP_LANDFIRE_National_Terrestrial_Ecosystems_2011_Attributes.txt"), header = TRUE, sep = "\t") %>% 
+  select(Value, NVC_CLASS) 
+
+# Plot
+plot(land_cover)
+```
+
+# Developed
+```{r}
+# Get values that correspond to development from land_cover_txt
+developed_values <- c(580, 581, 582, 583, 584)
+
+# Select pixels in land cover raster with values
+developed <- land_cover %in% developed_values
+
+# Plot
+plot(developed)
+```
+
+
+# Open water
+```{r}
+# Get values that correspond to open water from land_cover_txt
+open_water_values <- c(577, 578, 579)
+
+# Select pixels in land cover raster with values
+open_water <- land_cover %in% open_water_values
+
+# Plot
+plot(open_water)
+```
+
+
+
+# Roads
+```{r}
+# Read File
+roads <- read_sf(dsn = paste0(path, "/tl_2015_06_prisecroads"),
+                layer = "tl_2015_06_prisecroads") 
+
+# Plot
+plot(roads$geometry)
+```
+
+
+
+
+
+
+
