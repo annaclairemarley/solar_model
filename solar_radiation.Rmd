@@ -26,15 +26,30 @@ Net surface radiation
 * Emission scenario: A2
 * Year: 2050
 
+
+```{r}
+# Create a Root to Extract Files 
+if(Sys.info()["sysname"] == "Windows"){ #If operating system is "Windows" use G: Drive
+  team_path <- "G:/"
+} else { # If it is not (i.e. Mac), use the Google Drive File Stream
+  team_path <- "/Volumes/GoogleDrive/"
+}
+
+#Create the Full File Path
+path <- paste0(team_path, "Shared drives/ESM232/Data")
+
+```
+
+
 ```{r}
 
 #generate a list of input rasters ("solar_rasters")
 #pattern = "*.tif$" - filters for main raster files only and skips any associated files (e.g. world files)
-solar_rasters <- list.files("./data/nrad_flx_ccsm3a2bcsd/" , 
+solar_rasters <- list.files(paste0(path,"/nrad_flx_ccsm3a2bcsd") , 
                            pattern = "*.tif$")
 
 #create a raster stack from the input raster files 
-solar_stack <- raster::stack(paste0("./data/nrad_flx_ccsm3a2bcsd/", solar_rasters))
+solar_stack <- raster::stack(paste0(paste0(path,"/nrad_flx_ccsm3a2bcsd/"), solar_rasters))
 
 # rename bands
 names(solar_stack) <- c("jan", "feb", "mar", "apr", "may", "jun", 
