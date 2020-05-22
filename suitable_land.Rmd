@@ -93,6 +93,8 @@ land_cover_dbf <- read.dbf(paste0(path, "/gaplf2011lc_v30_CA/gaplf2011lc_v30_ca.
 land_cover_txt <- read.delim(paste0(path,"/gaplf2011lc_v30_CA/GAP_LANDFIRE_National_Terrestrial_Ecosystems_2011_Attributes.txt"), header = TRUE, sep = "\t") %>% 
   dplyr::select(Value, NVC_CLASS) 
 
+unique_landcover <- unique(land_cover_txt$NVC_CLASS)
+
 # Plot
 plot(land_cover)
 ```
