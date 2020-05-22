@@ -50,6 +50,110 @@ plot(CA_counties$geometry)
 
 ```
 
+# Land cover
+```{r}
+# Read File
+land_cover <- raster(paste0(path, "/gaplf2011lc_v30_CA/gaplf2011lc_v30_ca.tif"), RAT = TRUE)
+
+# Read dbf
+land_cover_dbf <- read.dbf(paste0(path, "/gaplf2011lc_v30_CA/gaplf2011lc_v30_ca.tif.vat.dbf"))
+
+# Read txt
+land_cover_txt <- read.delim(paste0(path,"/gaplf2011lc_v30_CA/GAP_LANDFIRE_National_Terrestrial_Ecosystems_2011_Attributes.txt"), header = TRUE, sep = "\t") %>% 
+  dplyr::select(Value, NVC_CLASS) 
+
+# Plot
+plot(land_cover)
+```
+
+# Developed
+```{r}
+# Get values that correspond to development from land_cover_txt
+developed_values <- c(580, 581, 582, 583, 584)
+
+# Select pixels in land cover raster with values
+developed <- land_cover %in% developed_values 
+
+# Reclassify matrix ( 0s into 1s and viceversa)
+rcl_mat <- c(-Inf, 0.1, 1,
+                   0.9, Inf, 0)
+
+# Reclassify
+developed_binary <- reclassify(developed, rcl = rcl_mat)
+
+# Plot
+plot(developed_binary)
+
+# Save
+writeRaster(x = developed_binary, filename = paste0(path,"/developed_binary.tif"), overwrite = T)
+```
+
+# Open water
+```{r}
+# Get values that correspond to open water from land_cover_txt
+open_water_values <- c(577, 578, 579)
+
+# Select pixels in land cover raster with values
+open_water <- land_cover %in% open_water_values
+
+# Reclassify
+open_water_binary <- reclassify(open_water, rcl = rcl_mat)
+
+# Plot
+plot(open_water_binary)
+
+# Save
+writeRaster(x = open_water_binary, filename = paste0(path,"/open_water_binary.tif"), overwrite = T)
+```
+
+# Suitable raster
+```{r}
+# Overlay layers
+suitable <- overlay(developed_binary,
+                    open_water_binary,
+                    fun = function (a,b) {a*b})
+
+```
+
+# % Suitable Land
+```{r}
+# Add suitable area column
+CA_counties$suitable_area <- NA
+
+# Add suitable area percentage column
+CA_counties$suitable_pct <- NA
+
+# Loop through each county
+for(i in 1:nrow(CA_counties)) {
+  print(i)
+  
+  # Select ith county
+  county <- CA_counties[i, ]
+  
+  # Crop
+  suitable_cropped <- crop(suitable, county)
+  
+  # Mask
+  suitable_masked <- mask(suitable_cropped, county, progress = 'text')
+  
+  # Count suitable cells
+  count <-  freq(suitable_masked, value = 1)
+  
+  # Calculate area
+  CA_counties$suitable_area[i] <- count * 30 * 30
+  
+  # Calculate area percentage
+  CA_counties$suitable_pct[i] <- CA_counties$suitable_area[i]/CA_counties$ALAND[i]*100
+}
+
+```
+
+
+
+#########################################################
+# Additional data
+#########################################################
+
 # Transmission lines
 ```{r}
 # Read File
@@ -79,81 +183,6 @@ rivers <- read_sf(dsn = paste0(path, "/NHD_MajorRivers"),
 
 # Plot
 plot(rivers$geometry)
-```
-
-# Land cover
-```{r}
-# Read File
-land_cover <- raster(paste0(path, "/gaplf2011lc_v30_CA/gaplf2011lc_v30_ca.tif"), RAT = TRUE)
-
-# Read dbf
-land_cover_dbf <- read.dbf(paste0(path, "/gaplf2011lc_v30_CA/gaplf2011lc_v30_ca.tif.vat.dbf"))
-
-# Read txt
-land_cover_txt <- read.delim(paste0(path,"/gaplf2011lc_v30_CA/GAP_LANDFIRE_National_Terrestrial_Ecosystems_2011_Attributes.txt"), header = TRUE, sep = "\t") %>% 
-  dplyr::select(Value, NVC_CLASS) 
-
-unique_landcover <- unique(land_cover_txt$NVC_CLASS)
-
-# Plot
-plot(land_cover)
-```
-
-# Developed
-```{r}
-# Get values that correspond to development from land_cover_txt
-developed_values <- c(580, 581, 582, 583, 584)
-
-# Select pixels in land cover raster with values
-developed <- land_cover %in% developed_values 
-
-# Plot
-plot(developed)
-```
-
-# % Suitable Land
-```{r}
-# Add suitable area column
-CA_counties$suitable_area <- NA
-
-# Add suitable area percentage column
-CA_counties$suitable_pct <- NA
-
-# Loop through each county
-for(i in 1:nrow(CA_counties)) {
-  print(i)
-  
-  # Select ith county
-  county <- CA_counties[i, ]
-  
-  # Crop
-  suitable_cropped <- crop(developed, county)
-  
-  # Mask
-  suitable_masked <- mask(suitable_cropped, county, progress = 'text')
-  
-  # Count suitable cells
-  count <-  freq(suitable_masked, value = 0)
-  
-  # Calculate area
-  CA_counties$suitable_area[i] <- count * 30 * 30
-  
-  # Calculate area percentage
-  CA_counties$suitable_pct[i] <- CA_counties$suitable_area[i]/CA_counties$ALAND[i]*100
-}
-
-```
-
-# Open water
-```{r}
-# Get values that correspond to open water from land_cover_txt
-open_water_values <- c(577, 578, 579)
-
-# Select pixels in land cover raster with values
-open_water <- land_cover %in% open_water_values
-
-# Plot
-plot(open_water)
 ```
 
 # Roads
