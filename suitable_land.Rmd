@@ -18,22 +18,33 @@ library(foreign)
 Set-Up for Downloading Data Using Google Drive File Stream
 ```{r}
 # Create a Root to Extract Files 
-if(Sys.info()["sysname"] == "Windows"){ #If operating system is "Windows" use G: Drive
+if(Sys.info()["sysname"] == "Windows"){ # If operating system is "Windows" use G: Drive
   team_path <- "G:/"
 } else { # If it is not (i.e. Mac), use the Google Drive File Stream
   team_path <- "/Volumes/GoogleDrive/"
 }
 
-#Create the Full File Path
+# Create the Full File Path
 path <- paste0(team_path, "Shared drives/ESM232/Data")
 
 ```
 
+CRS
+```{r}
+# Assign projection: NAD83
+NAD83 <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83
++units=m +no_defs +ellps=GRS80 +towgs84=0,0,0 "
+```
+
+
 # CA Counties
 ```{r}
-# Read file
+# Read file,select columns, and reproject
 CA_counties <- read_sf(dsn = paste0(path, "/CA_Counties"),
-                layer = "CA_Counties_TIGER2016")
+                layer = "CA_Counties_TIGER2016") %>% 
+  dplyr::select(NAME, ALAND, AWATER, geometry) %>% 
+  st_transform(NAD83) 
+
 # Plot
 plot(CA_counties$geometry)
 
@@ -43,7 +54,9 @@ plot(CA_counties$geometry)
 ```{r}
 # Read File
 transmission_lines <- read_sf(dsn = paste0(path, "/transmission_lines"),
-                layer = "transmission_lines")
+                layer = "transmission_lines") %>% 
+  st_transform(NAD83)
+
 # Plot
 plot(transmission_lines$geometry)
 ```
@@ -78,7 +91,7 @@ land_cover_dbf <- read.dbf(paste0(path, "/gaplf2011lc_v30_CA/gaplf2011lc_v30_ca.
 
 # Read txt
 land_cover_txt <- read.delim(paste0(path,"/gaplf2011lc_v30_CA/GAP_LANDFIRE_National_Terrestrial_Ecosystems_2011_Attributes.txt"), header = TRUE, sep = "\t") %>% 
-  select(Value, NVC_CLASS) 
+  dplyr::select(Value, NVC_CLASS) 
 
 # Plot
 plot(land_cover)
@@ -90,12 +103,44 @@ plot(land_cover)
 developed_values <- c(580, 581, 582, 583, 584)
 
 # Select pixels in land cover raster with values
-developed <- land_cover %in% developed_values
+developed <- land_cover %in% developed_values 
 
 # Plot
 plot(developed)
 ```
 
+# % Suitable Land
+```{r}
+# Add suitable area column
+CA_counties$suitable_area <- NA
+
+# Add suitable area percentage column
+CA_counties$suitable_pct <- NA
+
+# Loop through each county
+for(i in 1:nrow(CA_counties)) {
+  print(i)
+  
+  # Select ith county
+  county <- CA_counties[i, ]
+  
+  # Crop
+  suitable_cropped <- crop(developed, county)
+  
+  # Mask
+  suitable_masked <- mask(suitable_cropped, county, progress = 'text')
+  
+  # Count suitable cells
+  count <-  freq(suitable_masked, value = 0)
+  
+  # Calculate area
+  CA_counties$suitable_area[i] <- count * 30 * 30
+  
+  # Calculate area percentage
+  CA_counties$suitable_pct[i] <- CA_counties$suitable_area[i]/CA_counties$ALAND[i]*100
+}
+
+```
 
 # Open water
 ```{r}
@@ -109,20 +154,94 @@ open_water <- land_cover %in% open_water_values
 plot(open_water)
 ```
 
-
-
 # Roads
 ```{r}
 # Read File
 roads <- read_sf(dsn = paste0(path, "/tl_2015_06_prisecroads"),
-                layer = "tl_2015_06_prisecroads") 
+                layer = "tl_2015_06_prisecroads") %>% 
+  st_transform(NAD83)
 
 # Plot
 plot(roads$geometry)
 ```
 
+Buffered transmission lines
+```{r}
+# Buffer 10,000 m from transmission lines and merge polygons
+tl_buffered_10000 <- st_buffer(transmission_lines$geometry, 10000) %>% 
+  st_union() %>% 
+  as_Spatial()
 
+# Buffer 500 m from transmission lines and merge polygons
+tl_buffered_500 <- st_buffer(transmission_lines$geometry, 500) %>% 
+  st_union() %>% 
+  as_Spatial()
 
+# Plot
+plot(tl_buffered_10000)
+plot(tl_buffered_500)
+
+# Blank raster
+r <- raster(nrow = nrow(land_cover), ncol = ncol(land_cover), crs = NAD83, ext = extent(tl_buffered_10000))
+
+# Rasterize buffered transmission lines
+# Note: use progress='text' to see progress
+tl_raster_10000 <- rasterize(tl_buffered_10000, r, field = 1, progress='text')
+tl_raster_500 <- rasterize(tl_buffered_500, r, field = 0, background = 1, progress='text')
+
+# Plot
+plot(tl_raster_10000)
+plot(tl_raster_500)
+
+# Overlay two rasters
+tl_raster <- overlay(tl_raster_10000, tl_raster_500, fun = function(a,b) {a*b}, progress='text')
+
+# Plot
+plot(tl_raster)
+
+# Save raster
+writeRaster(x = tl_raster, filename = paste0(path,"/tl_raster.tif"), overwrite = T)
+
+```
+
+Buffered roads
+```{r}
+# Buffer 10,000 m from roads and merge polygons
+roads_buffered_10000 <- st_buffer(roads$geometry, 10000) %>% 
+  st_union() %>% 
+  as_Spatial()
+
+# Buffer 500 m from roads and merge polygons
+roads_buffered_500 <- st_buffer(roads$geometry, 500) %>% 
+  st_union() %>% 
+  as_Spatial()
+
+# Plot
+plot(roads_buffered_10000)
+plot(roads_buffered_500)
+
+# Blank raster
+r <- raster(nrow = nrow(land_cover), ncol = ncol(land_cover), crs = NAD83, ext = extent(roads_buffered_10000))
+
+# Rasterize buffered roads
+# Note: use progress='text' to see progress
+roads_raster_10000 <- rasterize(roads_buffered_10000, r, field = 1, progress='text')
+roads_raster_500 <- rasterize(roads_buffered_500, r, field = 0, background = 1, progress='text')
+
+# Plot
+plot(roads_raster_10000)
+plot(roads_raster_500)
+
+# Overlay two rasters
+roads_raster <- overlay(roads_raster_10000, roads_raster_500, fun = function(a,b) {a*b}, progress='text')
+
+# Plot
+plot(roads_raster)
+
+# Save raster
+writeRaster(x = roads_raster, filename = paste0(path,"/roads_raster.tif"), overwrite = T)
+
+```
 
 
 
