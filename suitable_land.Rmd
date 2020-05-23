@@ -13,6 +13,7 @@ library(raster)
 library(sf)
 library(sp)
 library(foreign)
+library(maps)
 ```
 
 Set-Up for Downloading Data Using Google Drive File Stream
@@ -100,20 +101,21 @@ land_cover_txt <- read.delim(paste0(path,"/gaplf2011lc_v30_CA/GAP_LANDFIRE_Natio
 plot(land_cover)
 ```
 
-# Developed
+# Developed & Other Human Use
 ```{r}
 # Get values that correspond to development from land_cover_txt
-developed_values <- c(580, 581, 582, 583, 584)
+developed_values <- land_cover_txt %>% 
+  dplyr::filter(NVC_CLASS == "Developed & Other Human Use")
 
 # Select pixels in land cover raster with values
-developed <- land_cover %in% developed_values 
+developed <- land_cover %in% developed_values[,1]
 
 # Reclassify matrix ( 0s into 1s and viceversa)
 rcl_mat <- c(-Inf, 0.1, 1,
                    0.9, Inf, 0)
 
 # Reclassify
-developed_binary <- reclassify(developed, rcl = rcl_mat)
+developed_binary <- reclassify(developed, rcl = rcl_mat, progress = 'text')
 
 # Plot
 plot(developed_binary)
@@ -125,13 +127,14 @@ writeRaster(x = developed_binary, filename = paste0(path,"/developed_binary.tif"
 # Open water
 ```{r}
 # Get values that correspond to open water from land_cover_txt
-open_water_values <- c(577, 578, 579)
+open_water_values <- land_cover_txt %>% 
+  dplyr::filter(NVC_CLASS == "Open Water")
 
 # Select pixels in land cover raster with values
-open_water <- land_cover %in% open_water_values
+open_water <- land_cover %in% open_water_values[,1]
 
 # Reclassify
-open_water_binary <- reclassify(open_water, rcl = rcl_mat)
+open_water_binary <- reclassify(open_water, rcl = rcl_mat, progress = 'text')
 
 # Plot
 plot(open_water_binary)
@@ -140,13 +143,86 @@ plot(open_water_binary)
 writeRaster(x = open_water_binary, filename = paste0(path,"/open_water_binary.tif"), overwrite = T)
 ```
 
+# Forest and Woodland
+```{r}
+# Get values that correspond to forest from land_cover_txt
+forest_values <- land_cover_txt %>% 
+  dplyr::filter(NVC_CLASS == "Forest & Woodland")
+
+# Select pixels in land cover raster with those values
+forest <- land_cover %in% forest_values[,1]
+
+# Reclassify
+forest_binary <- reclassify(forest, rcl = rcl_mat, progress = 'text')
+
+# Plot
+plot(forest_binary)
+
+# Save
+writeRaster(x = forest_binary, filename = paste0(path,"/forest_binary.tif"), overwrite = T)
+```
+
+
+# Agricultural and Developed
+```{r}
+# Get values that correspond to agricultural and developed from land_cover_txt
+ag_values <- land_cover_txt %>% 
+  dplyr::filter(NVC_CLASS == "Agricultural & Developed Vegetation")
+
+# Select pixels in land cover raster with those values
+ ag <- land_cover %in% ag_values[,1]
+
+# Reclassify
+ag_binary <- reclassify(ag, rcl = rcl_mat, progress = 'text')
+
+# Plot
+plot(ag_binary)
+
+# Save
+writeRaster(x = ag_binary, filename = paste0(path,"/ag_binary.tif"), overwrite = T)
+```
+
+
+# Aquatic vegetation
+```{r}
+# Get values that correspond to aquatic vegetation from land_cover_txt
+aquatic_values <- land_cover_txt %>% 
+  dplyr::filter(NVC_CLASS == "Aquatic Vegetation")
+
+# Select pixels in land cover raster with those values
+aquatic <- land_cover %in% aquatic_values[,1]
+
+# Reclassify
+aquatic_binary <- reclassify(ag, rcl = rcl_mat, progress = 'text')
+
+# Plot
+plot(aquatic_binary)
+
+# Save
+writeRaster(x = aquatic_binary, filename = paste0(path,"/aquatic_binary.tif"), overwrite = T)
+```
+
+
 # Suitable raster
 ```{r}
 # Overlay layers
 suitable <- overlay(developed_binary,
                     open_water_binary,
-                    fun = function (a,b) {a*b})
+                    forest_binary,
+                    ag_binary,
+                    aquatic_binary,
+                    fun = function (a,b,c,d,e) {a*b*c*d*e},
+                    progress = 'text')
 
+# Mask
+suitable_masked <- suitable %>% 
+  mask(CA_counties)
+
+# Plot
+plot(suitable_masked)
+
+# Save
+writeRaster(x = suitable, filename = paste0(path,"/suitable.tif"), overwrite = T)
 ```
 
 # % Suitable Land
