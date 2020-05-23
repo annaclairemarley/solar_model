@@ -14,6 +14,9 @@ library(sf)
 library(sp)
 library(foreign)
 library(maps)
+library(ggplot2)
+library(ggspatial)
+library(ggrepel)
 ```
 
 Set-Up for Downloading Data Using Google Drive File Stream
@@ -227,6 +230,9 @@ writeRaster(x = suitable, filename = paste0(path,"/suitable.tif"), overwrite = T
 
 # % Suitable Land
 ```{r}
+# Read in saved file (instead of loading all layers in suitability anlalysis)
+suitable <- raster(paste0(path,"/suitable.tif"))
+
 # Add suitable area column
 CA_counties$suitable_area <- NA
 
@@ -249,13 +255,60 @@ for(i in 1:nrow(CA_counties)) {
   # Count suitable cells
   count <-  freq(suitable_masked, value = 1)
   
-  # Calculate area
+  # Calculate area (number of cells * cell resolution)
   CA_counties$suitable_area[i] <- count * 30 * 30
   
   # Calculate area percentage
   CA_counties$suitable_pct[i] <- CA_counties$suitable_area[i]/CA_counties$ALAND[i]*100
 }
 
+# Save dataframe as csv file
+write.csv(CA_counties, paste0(path,'/CA_counties.csv'))
+
+```
+
+# Suitable Land % Map 
+```{r}
+# Labels
+counties_points<- cbind(CA_counties, st_coordinates(st_centroid(CA_counties$geometry)))
+
+# Map
+suitable_pct_map <- ggplot() +
+  geom_sf(data = CA_counties,
+          color = "gray30", 
+          size = 0.1,
+          aes(fill = CA_counties$suitable_pct)) +
+  scale_fill_continuous(
+    name = "Suitable Land \n Percentage",
+    low = "red",
+    high = "green"
+  ) +
+  geom_text_repel( data = counties_points,
+                   size = 2,
+             aes( x = X, y = Y,label = NAME)) + theme_void() +
+  theme_minimal() +
+  coord_sf(datum=NA) +
+  labs(x = "", y = "", title = "Solar Energy in CA") +
+  annotation_scale(location = "bl", style = "ticks") # scale bar
+
+suitable_pct_map
+```
+
+
+# Suitable Land Map (raster + counties)
+```{r}
+# Convert suitable raster to data frame
+suitable_df <- as.data.frame(suitable, xy = TRUE)
+
+# Map
+suitable_map <- ggplot() +
+  geom_sf(data = CA_counties) +
+  geom_raster(data = suitable_df) +
+   theme_minimal() +
+  coord_sf(datum=NA) +
+  labs(x = "", y = "", title = "Solar Energy in CA")
+
+suitable_map
 ```
 
 
