@@ -65,30 +65,7 @@ plot(CA_counties$geometry)
 
 ```
 
-# DEM 
-```{r}
-# read file
-dem <- raster(paste0(path, "/"))
-
-#reproject 
-dem_proj <- projectRaster(dem, crs = NAD83)
-
-# crop to CA
-dem_crop <- crop(dem_proj, california_project)
-
-# mask to CA
-dem_mask <- mask(dem_crop, california_project)
-
-```
-# Slope
-```{r}
-
-# calculate slope
-slope <- terrain(dem_mask, opt = 'slope', unit = 'degrees')
-
-```
-
-# Slope 2
+# Slope 
 ```{r}
 # Read files for CA
 slope2_a <- raster(paste0(path, "/lf83893613_US_SLP2016/US_SLP2016_US_SLP2016.tif"))
