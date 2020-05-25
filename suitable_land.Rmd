@@ -14,6 +14,7 @@ library(sf)
 library(sp)
 library(foreign)
 library(maps)
+library(mapdata)
 library(ggplot2)
 library(ggspatial)
 library(ggrepel)
@@ -87,6 +88,51 @@ slope <- terrain(dem_mask, opt = 'slope', unit = 'degrees')
 
 ```
 
+# Slope 2
+```{r}
+# Read files for CA
+slope2_a <- raster(paste0(path, "/lf83893613_US_SLP2016/US_SLP2016_US_SLP2016.tif"))
+slope2_b <- raster(paste0(path, "/lf04540208_US_SLP2016/US_SLP2016_US_SLP2016.tif"))
+slope2_c <- raster(paste0(path, "/lf88648117_US_SLP2016/US_SLP2016_US_SLP2016.tif"))
+slope2_d <- raster(paste0(path,"/lf34891549_US_SLP2016/US_SLP2016_US_SLP2016.tif"))
+
+# Plot
+plot(slope2_a)
+plot(slope2_b)
+plot(slope2_c)
+plot(slope2_d)
+
+# Merge files
+slope2 <- merge(slope2_a, slope2_b, slope2_c, slope2_d)
+
+# Crop
+slope2_cropped <- crop(slope2, CA_counties)
+
+# Mask
+slope2_masked <-mask(slope2_cropped, CA_counties)
+
+# Plot
+plot(slope2)
+
+# Save
+writeRaster(x = slope2, filename = paste0(path,"/slope_CA.tif"), overwrite = T)
+```
+
+# Slope suitability
+```{r}
+# Read file
+slope_CA <- raster(paste0(path,"/slope_CA.tif"))
+
+# Reclassify matrix ( 0s into 1s and viceversa)
+rcl_mat_slope <- c(-Inf, 5, 1,
+                   5, Inf, 0)
+
+# Reclassify
+slope_binary <- reclassify(slope_CA, rcl = rcl_mat_slope, progress = 'text')
+
+# Plot
+plot(slope_binary)
+```
 
 # Land cover
 ```{r}
