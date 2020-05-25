@@ -67,7 +67,7 @@ plot(CA_counties$geometry)
 # DEM 
 ```{r}
 # read file
-dem <- raster(paste0(path, "/USGS_13_n37w114.tif"))
+dem <- raster(paste0(path, "/"))
 
 #reproject 
 dem_proj <- projectRaster(dem, crs = NAD83)
