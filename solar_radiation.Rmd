@@ -17,14 +17,14 @@ library(sf)
 library(tidyverse)
 ```
 
-### Calculate projected solar energy output in CA given solar radiation projections
+## Calculate projected solar energy output in CA given solar radiation projections
 
+#### **Workflow**
 
-Net surface radiation (W/m^2)
-
-* Model: CCSM3
-* Emission scenario: A2
-* Year: 2050
+* Read in solar insolation raster data projected for California in 2050 
+* Reproject, crop, and mask to California
+* Read in average daily temperature data projected for California in 2050
+* Reproject, crop, and mask to California
 
 
 ```{r}
@@ -40,12 +40,20 @@ path <- paste0(team_path, "Shared drives/ESM232/Data")
 
 ```
 
-CRS
+**CRS**
 ```{r}
 # Assign projection: NAD83
 NAD83 <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83
 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0 "
 ```
+
+## Clean and Process Data
+
+#### Net surface radiation (W/m^2)
+
+* Model: CCSM3
+* Emission scenario: A2
+* Year: 2050
 
 ```{r}
 
@@ -66,7 +74,7 @@ plot(solar_stack)
 ```
 
 
-Crop and mask rasters to California 
+**Make California shapefile**
 
 ```{r}
 # grab US states from maps package
@@ -74,28 +82,31 @@ california <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE)) %>%
   filter(ID == "california")
 
 # make the polygon the same CRS as rasters
-california_project <- st_transform(california, crs(solar_stack))
+california_project <- st_transform(california, NAD83)
 
 ```
 
+**Crop and mask rasters to California **
+
 ```{r}
-# function to crop and mask all rasters to california
+# function to reproject, crop and mask all rasters to california
 
 # raster: the raster files
+# project: the projection you want to reproject the raster to
 # polygon: california_project
-ca_crop_mask = function(raster, polygon){
+ca_crop_mask = function(raster, project, polygon){
   
-  crop <- crop(raster, polygon)
+  reproject <- projectRaster(raster, crs = project)
+  crop <- crop(reproject, polygon)
   mask <- mask(crop, polygon)
   
   return(mask)
 }
 ```
 
-
 ```{r}
 # crop and mask to ca
-solar_stack_mask <- ca_crop_mask(solar_stack, california_project)
+solar_stack_mask <- ca_crop_mask(solar_stack, NAD83, california_project)
 
 # plot
 plot(solar_stack_mask)
@@ -103,27 +114,78 @@ plot(solar_stack_mask)
 ```
 
 
+
+#### Average Daily Temperature
+
+```{r}
+#generate a list of input rasters 
+temp_rasters <- list.files(paste0(path, "/tair_flx_ccsm3a2bcsd") , 
+                           pattern = "*.tif$")
+
+#create a raster stack from the input raster files 
+temp_stack <- raster::stack(paste0(paste0(path, "/tair_flx_ccsm3a2bcsd/"), temp_rasters))
+
+# rename bands
+names(temp_stack) <- c("jan", "feb", "mar", "apr", "may", "jun", 
+                        "jul", "aug", "sep", "oct", "nov", "dec")
+
+# plot
+plot(temp_stack)
+```
+
+**Crop and mask rasters to California**
+
+```{r}
+# crop and mask to ca
+temp_stack_mask <- ca_crop_mask(temp_stack, NAD83, california_project)
+
+# plot
+plot(temp_stack_mask)
+
+```
+
+
+### Projected Energy Output Model
+
+##### Parameters
+**Gtotal**: Net solar irradiation (W/m^2)
+
+**T**: average temperature of the day (K)
+
+**DIR**: average temperature difference of the month
+
+**N**: 
+
+**Gday**: Gtotal is total solar insolation (day + night) but we only need day-time insolation 
+
+**Tday_length**: daytime length of the location (hours)
+
+**eff**: efficiency of the photo voltaic (PV) panel
+
+##### Equations
+
+DIR = (Tmax - Tmin)/N
+
+Gday = Gtotal * (24/Tday_length)
+
+Tday = T + DIR/4
+
+eff = 1 - B(c)(Tcell)
+
+
+
 Energy output equation
 ```{r}
 
 # function to calculate energy output for each month
-energy_output = function(raster){
+energy_output = function(solar_raster, temp_raster, Tday_length){
   
-  output = raster * 4.5
+  DIR = (Tmax - Tmin)/N
+  G_day = Gtotal*(24/Tday_length)
   
   return(output)
   
 }
-
-```
-
-```{r}
-# test energy output
-
-solar_stack_energy <- energy_output(solar_stack_mask)
-
-plot(solar_stack_mask)
-plot(solar_stack_energy)
 
 ```
 
