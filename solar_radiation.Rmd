@@ -21,11 +21,14 @@ library(tidyverse)
 
 #### **Workflow**
 
+**Clean and process**
+
 * Read in solar insolation raster data projected for California in 2050 
 * Reproject, crop, and mask to California
-* Read in average daily temperature data projected for California in 2050
+* Read in average, max, and min daily temperature data projected for California in 2050
 * Reproject, crop, and mask to California
 
+**Run solar energy output model**
 
 ```{r}
 # Create a Root to Extract Files 
@@ -49,30 +52,29 @@ NAD83 <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +
 
 ## Clean and Process Data
 
-#### Net surface radiation (W/m^2)
-
-* Model: CCSM3
-* Emission scenario: A2
-* Year: 2050
-
 ```{r}
 
-#generate a list of input rasters ("solar_rasters")
-#pattern = "*.tif$" - filters for main raster files only and skips any associated files (e.g. world files)
-solar_rasters <- list.files(paste0(path,"/nrad_flx_ccsm3a2bcsd") , 
-                           pattern = "*.tif$")
+# function to read in raster data, create a raster stack, and rename files to months of the year
+# folder_path: string of name of the folder as "/folder_name"
 
-#create a raster stack from the input raster files 
-solar_stack <- raster::stack(paste0(paste0(path,"/nrad_flx_ccsm3a2bcsd/"), solar_rasters))
-
-# rename bands
-names(solar_stack) <- c("jan", "feb", "mar", "apr", "may", "jun", 
+process_rasters = function(folder_path){
+  
+  #generate a list of input rasters 
+  #pattern = "*.tif$" - filters for main raster files only and skips any associated files (e.g.   world files)
+  rasters <- list.files(paste0(path, folder_path) , 
+                             pattern = "*.tif$")
+  
+  #create a raster stack from the input raster files 
+  raster_stack <- raster::stack(paste0(paste0(path, paste0(folder_path, "/")), rasters))
+  
+  # rename bands
+  names(raster_stack) <- c("jan", "feb", "mar", "apr", "may", "jun", 
                         "jul", "aug", "sep", "oct", "nov", "dec")
+  
+  return(raster_stack)
+}
 
-# plot
-plot(solar_stack)
 ```
-
 
 **Make California shapefile**
 
@@ -104,7 +106,17 @@ ca_crop_mask = function(raster, project, polygon){
 }
 ```
 
+#### Net surface radiation (W/m^2)
+
+* Model: CCSM3
+* Emission scenario: A2
+* Year: 2050
+
+
 ```{r}
+# net average surface radiation 
+solar_stack <- process_rasters(folder_path = "/nrad_flx_ccsm3a2bcsd")
+
 # crop and mask to ca
 solar_stack_mask <- ca_crop_mask(solar_stack, NAD83, california_project)
 
@@ -113,35 +125,59 @@ plot(solar_stack_mask)
 
 ```
 
+### Temperature (C)
+
+* Model: CCSM3
+* Emission scenario: A2
+* Year: 2050
 
 
-#### Average Daily Temperature
+#### Average Daily 
 
 ```{r}
 #generate a list of input rasters 
-temp_rasters <- list.files(paste0(path, "/tair_flx_ccsm3a2bcsd") , 
-                           pattern = "*.tif$")
+temp_stack <- process_rasters(folder_path = "/tav_2050")
 
-#create a raster stack from the input raster files 
-temp_stack <- raster::stack(paste0(paste0(path, "/tair_flx_ccsm3a2bcsd/"), temp_rasters))
-
-# rename bands
-names(temp_stack) <- c("jan", "feb", "mar", "apr", "may", "jun", 
-                        "jul", "aug", "sep", "oct", "nov", "dec")
-
-# plot
-plot(temp_stack)
-```
-
-**Crop and mask rasters to California**
-
-```{r}
 # crop and mask to ca
 temp_stack_mask <- ca_crop_mask(temp_stack, NAD83, california_project)
 
-# plot
-plot(temp_stack_mask)
+# convert to Kelvin
+tav_K <- temp_stack_mask + 273.15
 
+# plot
+plot(tav_K)
+```
+
+#### Average Maximum 
+
+```{r}
+# max temp
+tmax_stack <- process_rasters(folder_path = "/tmax_2050")
+
+# crop and mask to ca
+tmax_stack_mask <- ca_crop_mask(tmax_stack, NAD83, california_project)
+
+# convert to Kelvin
+tmax_K <- tmax_stack_mask + 273.15
+
+# plot
+plot(tmax_K)
+```
+
+#### Average Minimum 
+
+```{r}
+# max temp
+tmin_stack <- process_rasters(folder_path = "/tmin_2050")
+
+# crop and mask to ca
+tmin_stack_mask <- ca_crop_mask(tmin_stack, NAD83, california_project)
+
+# convert to Kelvin
+tmin_K <- tmin_stack_mask + 273.15
+
+# plot
+plot(tmin_K)
 ```
 
 
@@ -150,28 +186,35 @@ plot(temp_stack_mask)
 ##### Parameters
 **Gtotal**: Net solar irradiation (W/m^2)
 
-**T**: average temperature of the day (K)
+**T**: average temperature (K)
 
-**DIR**: average temperature difference of the month
+**DTR**: daily temperature range - average temperature difference of the month
 
-**N**: 
-
-**Gday**: Gtotal is total solar insolation (day + night) but we only need day-time insolation 
+**Gday**: day-time insolation - Gtotal is total solar insolation (day + night) but we only need day time 
 
 **Tday_length**: daytime length of the location (hours)
 
-**eff**: efficiency of the photo voltaic (PV) panel
+**e_cell/e_ref**: efficiency of the photo voltaic (PV) panel
+
+**T_ref**: room temperature is the reference temp (25 C)
+
+**T_cell**: temperature of the solar panel
+
+**B, g c1, c2, c2**: parameters 
 
 ##### Equations
 
-DIR = (Tmax - Tmin)/N
+DTR = Tmax - Tmin
 
 Gday = Gtotal * (24/Tday_length)
 
 Tday = T + DIR/4
 
-eff = 1 - B(c)(Tcell)
+Tcell = c1 + c2(Tday) + c3(Gday)
 
+eff = 1 - B(T_cell - T_ref) + g(log)(Gday)
+
+Ppv = Gday(e_cell)
 
 
 Energy output equation
@@ -180,8 +223,23 @@ Energy output equation
 # function to calculate energy output for each month
 energy_output = function(solar_raster, temp_raster, Tday_length){
   
-  DIR = (Tmax - Tmin)/N
+  # calculate the average daily temperature range 
+  DTR = Tmax - Tmin
+  
+  # Calculate average daytime temperature
+  Tday = T + DTR/4
+  
+  # calculate daytime solar radiation
   G_day = Gtotal*(24/Tday_length)
+  
+  # calculate temperature of PV cell 
+  Tcell = c1 + c2*Tday + c3*Gday
+  
+  # calculate efficiency of solar cells
+  eff = 1 - B*(T_cell - T_ref) + g*log*Gday
+  
+  # calculate solar output
+  solar_output = Gday*e_cell
   
   return(output)
   
