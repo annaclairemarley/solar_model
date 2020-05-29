@@ -186,7 +186,7 @@ plot(tmin_K)
 ##### Parameters
 **Gtotal**: Net solar irradiation (W/m^2)
 
-**T**: average temperature (K)
+**Tav**: average temperature (K)
 
 **DTR**: daily temperature range - average temperature difference of the month
 
@@ -212,7 +212,7 @@ Tday = T + DIR/4
 
 Tcell = c1 + c2(Tday) + c3(Gday)
 
-eff = 1 - B(T_cell - T_ref) + g(log)(Gday)
+eff = 1 - B(T_cell - T_ref) + g(log(Gday))
 
 Ppv = Gday(e_cell)
 
@@ -221,29 +221,53 @@ Energy output equation
 ```{r}
 
 # function to calculate energy output for each month
-energy_output = function(solar_raster, temp_raster, Tday_length){
+energy_output = function(Gtotal, Tmin, Tmax, 
+                         Tav, Tday_length, Tref, 
+                         B, g, c1 = -3.75*10^-3, 
+                         c2 = 1.14*10^-3, c3 = 0.0175*10^-3){
   
   # calculate the average daily temperature range 
   DTR = Tmax - Tmin
   
   # Calculate average daytime temperature
-  Tday = T + DTR/4
+  Tday = Tav + DTR/4
   
   # calculate daytime solar radiation
-  G_day = Gtotal*(24/Tday_length)
+  Gday = Gtotal*(24/Tday_length)
   
   # calculate temperature of PV cell 
   Tcell = c1 + c2*Tday + c3*Gday
   
   # calculate efficiency of solar cells
-  eff = 1 - B*(T_cell - T_ref) + g*log*Gday
+  eff = 1 - B*(Tcell - Tref) + g*log(Gday)
   
   # calculate solar output
-  solar_output = Gday*e_cell
+  solar_output = Gday*eff
   
-  return(output)
+  return(solar_output)
   
 }
+
+```
+
+run through
+
+```{r}
+
+output_test <- energy_output(Gtotal = solar_stack_mask,
+                             Tmin = tmin_stack_mask,
+                             Tmax = tmax_stack_mask,
+                             Tav = temp_stack_mask,
+                             Tday_length = 12,
+                             Tref = 25,
+                             g = 0.05,
+                             B = 4)
+
+# rename bands
+names(output_test) <- c("jan", "feb", "mar", "apr", "may", "jun", 
+                    "jul", "aug", "sep", "oct", "nov", "dec")
+plot(output_test)
+
 
 ```
 
