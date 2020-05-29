@@ -15,6 +15,7 @@ library(raster)
 library(maps)
 library(sf)
 library(tidyverse)
+library(paletteer)
 ```
 
 ## Calculate projected solar energy output in CA given solar radiation projections
@@ -79,12 +80,20 @@ process_rasters = function(folder_path){
 **Make California shapefile**
 
 ```{r}
+## State border##
 # grab US states from maps package
 california <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE)) %>% 
   filter(ID == "california")
 
 # make the polygon the same CRS as rasters
 california_project <- st_transform(california, NAD83)
+
+## counties ##
+ca_counties <- st_as_sf(maps::map("county", plot = FALSE, fill = TRUE)) %>% 
+  filter(str_detect(ID, 'california'))
+
+# make the polygon the same CRS as rasters
+county_project <- st_transform(ca_counties, NAD83)
 
 ```
 
@@ -222,9 +231,9 @@ Energy output equation
 
 # function to calculate energy output for each month
 energy_output = function(Gtotal, Tmin, Tmax, 
-                         Tav, Tday_length, Tref, 
-                         B, g, c1 = -3.75*10^-3, 
-                         c2 = 1.14*10^-3, c3 = 0.0175*10^-3){
+                         Tav, Tday_length,  
+                         B, g, Tref = 25, c1 = -3.75, 
+                         c2 = 1.14, c3 = 0.0175){
   
   # calculate the average daily temperature range 
   DTR = Tmax - Tmin
@@ -239,10 +248,10 @@ energy_output = function(Gtotal, Tmin, Tmax,
   Tcell = c1 + c2*Tday + c3*Gday
   
   # calculate efficiency of solar cells
-  eff = 1 - B*(Tcell - Tref) + g*log(Gday)
+  eff = 1 - B*(Tcell - Tref) + g*log10(Gday)
   
   # calculate solar output
-  solar_output = Gday*eff
+  solar_output = Gday*eff*0.2
   
   return(solar_output)
   
@@ -250,24 +259,54 @@ energy_output = function(Gtotal, Tmin, Tmax,
 
 ```
 
-run through
+Run solar energy output model
 
 ```{r}
 
-output_test <- energy_output(Gtotal = solar_stack_mask,
+solar_energy <- energy_output(Gtotal = solar_stack_mask,
                              Tmin = tmin_stack_mask,
                              Tmax = tmax_stack_mask,
                              Tav = temp_stack_mask,
                              Tday_length = 12,
-                             Tref = 25,
-                             g = 0.05,
-                             B = 4)
+                             g = 0.05*10^-3,
+                             B = -4.5*10^-3)
 
 # rename bands
-names(output_test) <- c("jan", "feb", "mar", "apr", "may", "jun", 
+names(solar_energy) <- c("jan", "feb", "mar", "apr", "may", "jun", 
                     "jul", "aug", "sep", "oct", "nov", "dec")
-plot(output_test)
+plot(solar_energy)
 
+
+```
+
+Collapse to year average
+```{r}
+# average across the raster stack 
+solar_energy_2050 <- mean(solar_energy, na.rm = TRUE)
+plot(solar_energy_2050)
+
+# extract average energy output data for each county and join to counties shapefile
+county_energy <- raster::extract(solar_energy_2050, ca_counties, fun=mean)
+
+# give ca counties shapefile and county_energy matching row ids and join
+ca_counties_id <- ca_counties %>% 
+  mutate(num_id = row_number()) 
+
+#tidy
+county_energy_sp <- as.data.frame(county_energy) %>% 
+  mutate(num_id = row_number()) %>% 
+  left_join(ca_counties_id, by = "num_id") %>% 
+  rename(energy_output = V1) %>% 
+  select(-num_id) %>% 
+  arrange(-energy_output) %>% 
+  mutate(score = row_number())
+
+# graph
+
+ggplot(st_as_sf(county_energy_sp)) +
+  geom_sf(aes(fill = energy_output)) +
+  scale_fill_paletteer_c("ggthemes::Temperature Diverging") +
+  scale_size(guide = "none")
 
 ```
 
