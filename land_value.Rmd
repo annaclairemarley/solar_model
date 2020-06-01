@@ -59,3 +59,35 @@ ggplot(land_value_2019) +
   
 ```
 
+```{r}
+#creating a data.frame storing the average solar output
+
+solar_energy_simple <- county_energy_sp %>% 
+  select(-geom) %>% 
+  mutate(strCounty = str_to_title(str_remove(ID, "california,"))) %>% 
+  select(-ID, -score)
+
+
+df_LCOE <- full_join(solar_energy_simple, land_value_2019) %>% 
+  select(-ABBREV, -FIPS, -intYrTo, -intLand, -area)
+```
+
+```{r}
+source("LCOE.R")
+
+df_LCOE <- df_LCOE %>% 
+  mutate(LCOE = LCOE(gen = energy_output, size = 20000, total_om = 8.12, instant_cost = 1585, installed_cost = 1861, land_cost = unitLand)) %>% 
+  st_as_sf()
+
+#final_LCOE <- mapply(LCOE, gen = df_LCOE$energy_output, MoreArgs = list(size = 20000, total_om = 8.12, #instant_cost = 1742, installed_cost = 1861))
+```
+
+```{r}
+ggplot(df_LCOE) +
+  geom_sf(aes(fill = LCOE), color = NA) +
+  scale_fill_paletteer_c("ggthemes::Orange") +
+  scale_size(guide = "none") + #Removing size legend
+  labs(fill = "LCOE ($/MWh)")
+  
+```
+
