@@ -16,6 +16,7 @@ library(maps)
 library(sf)
 library(tidyverse)
 library(paletteer)
+library(stringr)
 ```
 
 ## Calculate projected solar energy output in CA given solar radiation projections
@@ -40,7 +41,7 @@ if(Sys.info()["sysname"] == "Windows"){ #If operating system is "Windows" use G:
 }
 
 #Create the Full File Path
-path <- paste0(team_path, "Shared drives/ESM232/Data")
+path <- paste0(team_path, "Shared drives/ESM232/Data/in")
 
 ```
 
@@ -124,7 +125,7 @@ ca_crop_mask = function(raster, project, polygon){
 
 ```{r}
 # net average surface radiation 
-solar_stack <- process_rasters(folder_path = "/nrad_flx_ccsm3a2bcsd")
+solar_stack <- process_rasters(folder_path = "/solar_2020")
 
 # crop and mask to ca
 solar_stack_mask <- ca_crop_mask(solar_stack, NAD83, california_project)
@@ -138,55 +139,46 @@ plot(solar_stack_mask)
 
 * Model: CCSM3
 * Emission scenario: A2
-* Year: 2050
+
 
 
 #### Average Daily 
 
 ```{r}
 #generate a list of input rasters 
-temp_stack <- process_rasters(folder_path = "/tav_2050")
+temp_stack <- process_rasters(folder_path = "/tav_2020")
 
 # crop and mask to ca
 temp_stack_mask <- ca_crop_mask(temp_stack, NAD83, california_project)
 
-# convert to Kelvin
-tav_K <- temp_stack_mask + 273.15
-
 # plot
-plot(tav_K)
+plot(temp_stack_mask)
 ```
 
 #### Average Maximum 
 
 ```{r}
 # max temp
-tmax_stack <- process_rasters(folder_path = "/tmax_2050")
+tmax_stack <- process_rasters(folder_path = "/tmax_2020")
 
 # crop and mask to ca
 tmax_stack_mask <- ca_crop_mask(tmax_stack, NAD83, california_project)
 
-# convert to Kelvin
-tmax_K <- tmax_stack_mask + 273.15
-
 # plot
-plot(tmax_K)
+plot(tmax_stack_mask)
 ```
 
 #### Average Minimum 
 
 ```{r}
 # max temp
-tmin_stack <- process_rasters(folder_path = "/tmin_2050")
+tmin_stack <- process_rasters(folder_path = "/tmin_2020")
 
 # crop and mask to ca
 tmin_stack_mask <- ca_crop_mask(tmin_stack, NAD83, california_project)
 
-# convert to Kelvin
-tmin_K <- tmin_stack_mask + 273.15
-
 # plot
-plot(tmin_K)
+plot(tmin_stack_mask)
 ```
 
 
@@ -282,11 +274,11 @@ plot(solar_energy)
 Collapse to year average
 ```{r}
 # average across the raster stack 
-solar_energy_2050 <- mean(solar_energy, na.rm = TRUE)
-plot(solar_energy_2050)
+solar_energy_av <- mean(solar_energy, na.rm = TRUE)
+plot(solar_energy_av)
 
 # extract average energy output data for each county and join to counties shapefile
-county_energy <- raster::extract(solar_energy_2050, ca_counties, fun=mean)
+county_energy <- raster::extract(solar_energy_av, ca_counties, fun=mean)
 
 # give ca counties shapefile and county_energy matching row ids and join
 ca_counties_id <- ca_counties %>% 
@@ -296,6 +288,7 @@ ca_counties_id <- ca_counties %>%
 county_energy_sp <- as.data.frame(county_energy) %>% 
   mutate(num_id = row_number()) %>% 
   left_join(ca_counties_id, by = "num_id") %>% 
+  mutate(county = str_to_title(str_remove(ID, "california,"))) %>% 
   rename(energy_output = V1) %>% 
   select(-num_id) %>% 
   arrange(energy_output) %>% 
