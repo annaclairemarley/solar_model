@@ -5,10 +5,27 @@ date: "5/17/2020"
 output: html_document
 ---
 
+Data is separated into:
+- Raw: raw data as downloaded
+- In: renamed data used in R
+- Out: data saved from R
+
+Layers that won't change through time for the suitability analysis:
+- slope
+- open water
+
+Layers that could change through time and could be used as optional inputs for the land suitability submodel:
+- developed
+- forest and woodland
+- agricultural
+- aquatic vegetation
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 # Load required libraries
+library(tidyverse)
 library(raster)
 library(sf)
 library(sp)
@@ -18,6 +35,7 @@ library(mapdata)
 library(ggplot2)
 library(ggspatial)
 library(ggrepel)
+library(paletteer)
 ```
 
 Set-Up for Downloading Data Using Google Drive File Stream
@@ -29,8 +47,9 @@ if(Sys.info()["sysname"] == "Windows"){ # If operating system is "Windows" use G
   team_path <- "/Volumes/GoogleDrive/"
 }
 
-# Create the Full File Path
-path <- paste0(team_path, "Shared drives/ESM232/Data")
+# Create the Full File Paths for Inputs and Outputs
+In <- paste0(team_path, "Shared drives/ESM232/Data/in/") # cannot use "in" as name
+out <- paste0(team_path, "Shared drives/ESM232/Data/out/")
 
 ```
 
@@ -48,57 +67,96 @@ california <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE)) %>%
   filter(ID == "california")
 
 # make the polygon the same CRS as rasters
-california_project <- st_transform(california, NAD83)
+CA_proj <- st_transform(california, NAD83)
+
+# Save shapefile (to read inside function)
+st_write(CA_proj, paste0(out, "/CA_proj.shp"), delete_layer = TRUE)
 
 ```
 
 # CA Counties
 ```{r}
-# Read file,select columns, and reproject
-CA_counties <- read_sf(dsn = paste0(path, "/CA_Counties"),
-                layer = "CA_Counties_TIGER2016") %>% 
-  dplyr::select(NAME, ALAND, AWATER, geometry) %>% 
-  st_transform(NAD83) 
+# grab US counties from maps package
+counties_CA <- st_as_sf(maps::map("county", "california", plot = FALSE, fill = TRUE))
+
+# reproject, remove state from county names, and calculate area
+counties_proj <- st_transform(counties_CA, NAD83) %>% 
+  separate("ID", c("State", "County"), sep=",") %>% 
+  dplyr::select(-"State") %>% 
+  mutate(area = st_area(geom))
+
+# Save shapefile
+st_write(counties_proj, paste0(out, "/counties_proj.shp"), delete_layer = TRUE)
+```
+
+# Land cover USGS
+
+Land use/land cover (LULC) class identification code. 
+01 = Water, 
+02 = Developed, 
+03 = Transportation/Other Developed, 
+04 = Mining (not used), 
+05 = Barren, **
+06 = Forest, 
+07 = Grassland, **
+08 = Annual Agriculture, 
+09 = Wetlands, 
+10 = Shrublands, **
+11 = SnowIce, 
+12 = Perennial Agriculture
+
+```{r}
+# Read file
+land_cover <- raster(paste0(In, "land_cover_2020.tif"))
+
+# Get suitable values
+suitable_lc_values <- c(5, 7, 10)
+
+# Select pixels with those values
+suitable_lc <- land_cover %in% suitable_lc_values
+
+# Mask
+suitable_lc_binary <- mask(suitable_lc, CA_proj)
 
 # Plot
-plot(CA_counties$geometry)
+plot(suitable_lc_binary)
+
+# Save
+writeRaster(x = suitable_lc_binary, filename = paste0(out,"suitable_lc_binary.tif"), overwrite = T)
 
 ```
 
-# Slope 
+# Slope (no need to run)
 ```{r}
 # Read files for CA
-slope2_a <- raster(paste0(path, "/lf83893613_US_SLP2016/US_SLP2016_US_SLP2016.tif"))
-slope2_b <- raster(paste0(path, "/lf04540208_US_SLP2016/US_SLP2016_US_SLP2016.tif"))
-slope2_c <- raster(paste0(path, "/lf88648117_US_SLP2016/US_SLP2016_US_SLP2016.tif"))
-slope2_d <- raster(paste0(path,"/lf34891549_US_SLP2016/US_SLP2016_US_SLP2016.tif"))
-
-# Plot
-plot(slope2_a)
-plot(slope2_b)
-plot(slope2_c)
-plot(slope2_d)
+slope_a <- raster(paste0(In, "slope_a.tif"))
+slope_b <- raster(paste0(In, "/slope_b.tif"))
+slope_c <- raster(paste0(In, "/slope_c.tif"))
+slope_d <- raster(paste0(In,"/slope_d.tif"))
 
 # Merge files
-slope2 <- merge(slope2_a, slope2_b, slope2_c, slope2_d)
+slope <- merge(slope_a, slope_b, slope_c, slope_d, progress = 'text')
 
 # Crop
-slope2_cropped <- crop(slope2, CA_counties)
+slope_cropped <- crop(slope, CA_proj)
 
 # Mask
-slope2_masked <-mask(slope2_cropped, CA_counties)
+slope_masked <-mask(slope_cropped, CA_proj)
+
+# Change resolution
+slope_small <- raster::resample(slope_masked, land_cover, method='bilinear')
 
 # Plot
-plot(slope2)
+plot(slope_small)
 
 # Save
-writeRaster(x = slope2, filename = paste0(path,"/slope_CA.tif"), overwrite = T)
+writeRaster(x = slope_small, filename = paste0(out,"slope_CA.tif"), overwrite = T)
 ```
 
 # Slope suitability
 ```{r}
 # Read file
-slope_CA <- raster(paste0(path,"/slope_CA.tif"))
+slope_CA <- raster(paste0(out,"slope_CA.tif"))
 
 # Reclassify matrix ( 0s into 1s and viceversa)
 rcl_mat_slope <- c(-Inf, 5, 1,
@@ -109,165 +167,29 @@ slope_binary <- reclassify(slope_CA, rcl = rcl_mat_slope, progress = 'text')
 
 # Plot
 plot(slope_binary)
-```
-
-# Land cover
-```{r}
-# Read File
-land_cover <- raster(paste0(path, "/gaplf2011lc_v30_CA/gaplf2011lc_v30_ca.tif"), RAT = TRUE)
-
-# Read dbf
-land_cover_dbf <- read.dbf(paste0(path, "/gaplf2011lc_v30_CA/gaplf2011lc_v30_ca.tif.vat.dbf"))
-
-# Read txt
-land_cover_txt <- read.delim(paste0(path,"/gaplf2011lc_v30_CA/GAP_LANDFIRE_National_Terrestrial_Ecosystems_2011_Attributes.txt"), header = TRUE, sep = "\t") %>% 
-  dplyr::select(Value, NVC_CLASS) 
-
-# Plot
-plot(land_cover)
-```
-
-# Developed & Other Human Use
-```{r}
-# Get values that correspond to development from land_cover_txt
-developed_values <- land_cover_txt %>% 
-  dplyr::filter(NVC_CLASS == "Developed & Other Human Use")
-
-# Select pixels in land cover raster with values
-developed <- land_cover %in% developed_values[,1]
-
-# Reclassify matrix ( 0s into 1s and viceversa)
-rcl_mat <- c(-Inf, 0.1, 1,
-                   0.9, Inf, 0)
-
-# Reclassify
-developed_binary <- reclassify(developed, rcl = rcl_mat, progress = 'text')
-
-# Plot
-plot(developed_binary)
 
 # Save
-writeRaster(x = developed_binary, filename = paste0(path,"/developed_binary.tif"), overwrite = T)
+writeRaster(x = slope_binary, filename = paste0(out,"slope_binary.tif"), overwrite = T)
 ```
 
-# Open water
-```{r}
-# Get values that correspond to open water from land_cover_txt
-open_water_values <- land_cover_txt %>% 
-  dplyr::filter(NVC_CLASS == "Open Water")
-
-# Select pixels in land cover raster with values
-open_water <- land_cover %in% open_water_values[,1]
-
-# Reclassify
-open_water_binary <- reclassify(open_water, rcl = rcl_mat, progress = 'text')
-
-# Plot
-plot(open_water_binary)
-
-# Save
-writeRaster(x = open_water_binary, filename = paste0(path,"/open_water_binary.tif"), overwrite = T)
-```
-
-# Forest and Woodland
-```{r}
-# Get values that correspond to forest from land_cover_txt
-forest_values <- land_cover_txt %>% 
-  dplyr::filter(NVC_CLASS == "Forest & Woodland")
-
-# Select pixels in land cover raster with those values
-forest <- land_cover %in% forest_values[,1]
-
-# Reclassify
-forest_binary <- reclassify(forest, rcl = rcl_mat, progress = 'text')
-
-# Plot
-plot(forest_binary)
-
-# Save
-writeRaster(x = forest_binary, filename = paste0(path,"/forest_binary.tif"), overwrite = T)
-```
-
-
-# Agricultural and Developed
-```{r}
-# Get values that correspond to agricultural and developed from land_cover_txt
-ag_values <- land_cover_txt %>% 
-  dplyr::filter(NVC_CLASS == "Agricultural & Developed Vegetation")
-
-# Select pixels in land cover raster with those values
- ag <- land_cover %in% ag_values[,1]
-
-# Reclassify
-ag_binary <- reclassify(ag, rcl = rcl_mat, progress = 'text')
-
-# Plot
-plot(ag_binary)
-
-# Save
-writeRaster(x = ag_binary, filename = paste0(path,"/ag_binary.tif"), overwrite = T)
-```
-
-
-# Aquatic vegetation
-```{r}
-# Get values that correspond to aquatic vegetation from land_cover_txt
-aquatic_values <- land_cover_txt %>% 
-  dplyr::filter(NVC_CLASS == "Aquatic Vegetation")
-
-# Select pixels in land cover raster with those values
-aquatic <- land_cover %in% aquatic_values[,1]
-
-# Reclassify
-aquatic_binary <- reclassify(ag, rcl = rcl_mat, progress = 'text')
-
-# Plot
-plot(aquatic_binary)
-
-# Save
-writeRaster(x = aquatic_binary, filename = paste0(path,"/aquatic_binary.tif"), overwrite = T)
-```
-
-
-# Suitable raster
-```{r}
-# Overlay layers
-suitable <- overlay(developed_binary,
-                    open_water_binary,
-                    forest_binary,
-                    ag_binary,
-                    aquatic_binary,
-                    fun = function (a,b,c,d,e) {a*b*c*d*e},
-                    progress = 'text')
-
-# Mask
-suitable_masked <- suitable %>% 
-  mask(CA_counties)
-
-# Plot
-plot(suitable_masked)
-
-# Save
-writeRaster(x = suitable, filename = paste0(path,"/suitable.tif"), overwrite = T)
-```
 
 # % Suitable Land
 ```{r}
 # Read in saved file (instead of loading all layers in suitability anlalysis)
-suitable <- raster(paste0(path,"/suitable.tif"))
+suitable <- raster(paste0(out,"suitable.tif"))
 
 # Add suitable area column
-CA_counties$suitable_area <- NA
+counties_proj$suitable_area <- NA
 
 # Add suitable area percentage column
-CA_counties$suitable_pct <- NA
+counties_proj$suitable_pct <- NA
 
 # Loop through each county
-for(i in 1:nrow(CA_counties)) {
+for(i in 1:nrow(counties_proj)) {
   print(i)
   
   # Select ith county
-  county <- CA_counties[i, ]
+  county <- counties_proj[i, ]
   
   # Crop
   suitable_cropped <- crop(suitable, county)
@@ -279,36 +201,42 @@ for(i in 1:nrow(CA_counties)) {
   count <-  freq(suitable_masked, value = 1)
   
   # Calculate area (number of cells * cell resolution)
-  CA_counties$suitable_area[i] <- count * 30 * 30
+  counties_proj$suitable_area[i] <- count * 1000 * 1000
   
   # Calculate area percentage
-  CA_counties$suitable_pct[i] <- CA_counties$suitable_area[i]/CA_counties$ALAND[i]*100
+  counties_proj$suitable_pct[i] <- counties_proj$suitable_area[i]/counties_proj$area[i]*100
 }
 
+# Create rank column
+counties_proj$rank <- NA
+
+# Rank counties by % of suitable land
+counties_proj$rank[order(counties_proj$suitable_pct)] <- 1:nrow(counties_proj)
+
+# Rank dataframe
+counties_rank_df <- as.data.frame(counties_proj) %>% 
+  select(County, rank)
+
 # Save dataframe as csv file
-write.csv(CA_counties, paste0(path,'/CA_counties.csv'))
+write.csv(counties_proj, paste0(out,'counties_area.csv'))
 
 ```
 
 # Suitable Land % Map 
 ```{r}
 # Labels
-counties_points<- cbind(CA_counties, st_coordinates(st_centroid(CA_counties$geometry)))
+counties_points<- cbind(counties_proj, st_coordinates(st_centroid(counties_proj$geometry)))
 
 # Map
 suitable_pct_map <- ggplot() +
-  geom_sf(data = CA_counties,
+  geom_sf(data = counties_proj,
           color = "gray30", 
           size = 0.1,
-          aes(fill = CA_counties$suitable_pct)) +
-  scale_fill_continuous(
-    name = "Suitable Land \n Percentage",
-    low = "red",
-    high = "green"
-  ) +
+          aes(fill = counties_proj$suitable_pct)) +
+  scale_fill_paletteer_c("ggthemes::Temperature Diverging") +
   geom_text_repel( data = counties_points,
                    size = 2,
-             aes( x = X, y = Y,label = NAME)) + theme_void() +
+             aes( x = X, y = Y,label = County)) + 
   theme_minimal() +
   coord_sf(datum=NA) +
   labs(x = "", y = "", title = "Solar Energy in CA") +
@@ -325,15 +253,191 @@ suitable_df <- as.data.frame(suitable, xy = TRUE)
 
 # Map
 suitable_map <- ggplot() +
-  geom_sf(data = CA_counties) +
-  geom_raster(data = suitable_df) +
+  geom_raster(data = suitable_df,
+               mapping = aes(x = x, y = y,  fill = layer )) +
+  
+  geom_sf(data = counties_proj,
+          fill = "transparent",
+          color = "gray30", 
+          size = 0.1) +
+  scale_fill_paletteer_c("ggthemes::Temperature Diverging",
+                         na.value = "transparent") +
    theme_minimal() +
   coord_sf(datum=NA) +
-  labs(x = "", y = "", title = "Solar Energy in CA")
+  labs(x = "", y = "", title = "Solar Energy in CA") +
+  annotation_scale(location = "bl", style = "ticks") # scale bar
 
 suitable_map
 ```
 
+
+# Function to obtain suitability raster of CA
+```{r}
+suitability_fun <- function (land_cover_raster,
+                             slope_threshold = 5,
+                             land_cover_suitable_values = c(5, 7, 10) ) {
+  
+  ### Slope ###
+  # Read slope file
+  slope_CA <- raster(paste0(out,"slope_CA.tif"))
+  
+  # Read CA file
+  CA_proj <- read_sf(dsn = out,
+                layer = "counties_proj")
+  
+  # Reclassify matrix ( 0s into 1s and viceversa)
+rcl_mat_slope <- c(-Inf, slope_threshold, 1,
+                  slope_threshold, Inf, 0)
+  
+  # Reclassify
+slope_binary <- reclassify(slope_CA, rcl = rcl_mat_slope, progress = 'text')
+
+
+### Land cover ###
+# Select pixels with those values
+suitable_lc <- land_cover_raster %in% land_cover_suitable_values
+
+# Mask
+suitable_lc_binary <- mask(suitable_lc, CA_proj)
+
+
+### Suitability ###
+# Overlay layers
+suitable <- overlay(slope_binary,
+                    suitable_lc_binary,
+                    fun = function (a,b) {a*b},
+                    progress = 'text')
+
+# Mask
+suitable_masked <- suitable %>% 
+  mask(CA_proj)
+
+# Plot
+plot(suitable_masked)
+
+# Return raster
+return(suitable_masked)
+}
+
+# Test function
+suitable <- suitability_fun(land_cover_raster = land_cover)
+  
+```
+
+
+# Function to map suitability by county
+```{r}
+map_suitability_fun <- function(suitable_raster) {
+
+  ### Map of suitable raster with county boundaries ###
+  # Read CA counties file
+  counties_proj <- read_sf(dsn = out,
+                           layer = "counties_proj")
+  
+  # Read CA file
+  CA_proj <- read_sf(dsn = out,
+                     layer = "counties_proj")
+  
+  # Convert suitable raster to data frame
+  suitable_df <- as.data.frame(suitable, xy = TRUE)
+  
+ # Map
+suitable_map <- ggplot() +
+  geom_raster(data = suitable_df,
+               mapping = aes(x = x, y = y,  fill = layer )) +
+  
+  geom_sf(data = counties_proj,
+          fill = "transparent",
+          color = "gray30", 
+          size = 0.1) +
+  scale_fill_paletteer_c("ggthemes::Temperature Diverging",
+                         na.value = "transparent") +
+   theme_minimal() +
+  coord_sf(datum=NA) +
+  labs(x = "", y = "", title = "Solar Energy in CA") +
+  annotation_scale(location = "bl", style = "ticks") # scale bar
+  
+  
+  ### Calculating % of suitable land by county ###
+  
+  # Add suitable area column
+  counties_proj$suitable_area <- NA
+  
+  # Add suitable area percentage column
+  counties_proj$suitable_pct <- NA
+  
+  # Loop through each county
+  for (i in 1:nrow(counties_proj)) {
+    print(i)
+    
+    # Select ith county
+    county <- counties_proj[i,]
+    
+    # Crop
+    suitable_cropped <- crop(suitable_raster, CA_proj)
+    
+    # Mask
+    suitable_masked <-
+      mask(suitable_cropped, CA_proj, progress = 'text')
+    
+    # Count suitable cells
+    count <-  freq(suitable_masked, value = 1)
+    
+    # Calculate area (number of cells * cell resolution)
+    counties_proj$suitable_area[i] <- count * 1000 * 1000
+    
+    # Calculate area percentage
+    counties_proj$suitable_pct[i] <-
+      counties_proj$suitable_area[i] / counties_proj$area[i] * 100
+  }
+  
+  ### Map percent suitable by county ###
+  # Labels
+  counties_points <-
+    cbind(counties_proj, st_coordinates(st_centroid(counties_proj$geometry)))
+  
+  # Map
+suitable_pct_map <- ggplot() +
+  geom_sf(data = counties_proj,
+          color = "gray30", 
+          size = 0.1,
+          aes(fill = counties_proj$suitable_pct)) +
+  scale_fill_paletteer_c("ggthemes::Temperature Diverging") +
+  geom_text_repel( data = counties_points,
+                   size = 2,
+             aes( x = X, y = Y,label = County)) + 
+  theme_minimal() +
+  coord_sf(datum=NA) +
+  labs(x = "", y = "", title = "Solar Energy in CA") +
+  annotation_scale(location = "bl", style = "ticks") # scale bar
+  
+  ### Calculating county rankings ###
+  # Create rank column
+  counties_proj$rank <- NA
+  
+  # Rank counties by % of suitable land
+  counties_proj$rank[order(counties_proj$suitable_pct)] <-
+    1:nrow(counties_proj)
+  
+  # Rank dataframe
+  counties_rank_df <- as.data.frame(counties_proj) %>% 
+  select(County, rank)
+  
+  ### Map rankings ###
+  
+  
+  return(list(suitable_map, suitable_pct_map, counties_rank_df))
+  
+}
+
+# Test function
+
+outputs <- map_suitability_fun(suitable_raster = suitable)
+
+outputs
+
+
+```
 
 
 #########################################################
