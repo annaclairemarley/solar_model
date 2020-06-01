@@ -328,3 +328,12 @@ pse::plotprcc(sens_materials_lhs, ylab = "Correlation")
 sens_materials_lhs$prcc
 ```
 
+```{r}
+sens_result_lhs = as.data.frame(sens_result_lhs) %>% 
+  gather(value="value", key="maximum_output")
+
+ggplot(sens_result_lhs, aes(y = maximum_output))+
+  geom_boxplot()+
+  labs(y="Maximum Energy Output (W/m^2)")+
+  theme_minimal()
+```
