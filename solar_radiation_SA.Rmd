@@ -1,0 +1,330 @@
+---
+title: "solar_radiation_SA"
+author: "Yingfei Jiang"
+date: "5/31/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+# load packages
+library(raster)
+library(maps)
+library(sf)
+library(tidyverse)
+library(paletteer)
+library(sensitivity)
+library(pse)
+```
+
+## Calculate projected solar energy output in CA given solar radiation projections
+
+#### **Workflow**
+
+**Clean and process**
+
+* Read in solar insolation raster data projected for California in 2050 
+* Reproject, crop, and mask to California
+* Read in average, max, and min daily temperature data projected for California in 2050
+* Reproject, crop, and mask to California
+
+**Run solar energy output model**
+
+```{r}
+# Create a Root to Extract Files 
+if(Sys.info()["sysname"] == "Windows"){ #If operating system is "Windows" use G: Drive
+  team_path <- "G:/"
+} else { # If it is not (i.e. Mac), use the Google Drive File Stream
+  team_path <- "/Volumes/GoogleDrive/"
+}
+
+#Create the Full File Path
+path <- paste0(team_path, "Shared drives/ESM232/Data")
+
+```
+
+**CRS**
+```{r}
+# Assign projection: NAD83
+NAD83 <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83
++units=m +no_defs +ellps=GRS80 +towgs84=0,0,0 "
+```
+
+## Clean and Process Data
+
+```{r}
+
+# function to read in raster data, create a raster stack, and rename files to months of the year
+# folder_path: string of name of the folder as "/folder_name"
+
+process_rasters = function(folder_path){
+  
+  #generate a list of input rasters 
+  #pattern = "*.tif$" - filters for main raster files only and skips any associated files (e.g.   world files)
+  rasters <- list.files(paste0(path, folder_path) , 
+                             pattern = "*.tif$")
+  
+  #create a raster stack from the input raster files 
+  raster_stack <- raster::stack(paste0(paste0(path, paste0(folder_path, "/")), rasters))
+  
+  # rename bands
+  names(raster_stack) <- c("jan", "feb", "mar", "apr", "may", "jun", 
+                        "jul", "aug", "sep", "oct", "nov", "dec")
+  
+  return(raster_stack)
+}
+
+```
+
+**Make California shapefile**
+
+```{r}
+## State border##
+# grab US states from maps package
+california <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE)) %>% 
+  filter(ID == "california")
+
+# make the polygon the same CRS as rasters
+california_project <- st_transform(california, NAD83)
+
+## counties ##
+ca_counties <- st_as_sf(maps::map("county", plot = FALSE, fill = TRUE)) %>% 
+  filter(str_detect(ID, 'california'))
+
+# make the polygon the same CRS as rasters
+county_project <- st_transform(ca_counties, NAD83)
+
+```
+
+**Crop and mask rasters to California **
+
+```{r}
+# function to reproject, crop and mask all rasters to california
+
+# raster: the raster files
+# project: the projection you want to reproject the raster to
+# polygon: california_project
+ca_crop_mask = function(raster, project, polygon){
+  
+  reproject <- projectRaster(raster, crs = project)
+  crop <- crop(reproject, polygon)
+  mask <- mask(crop, polygon)
+  
+  return(mask)
+}
+```
+
+#### Net surface radiation (W/m^2)
+
+* Model: CCSM3
+* Emission scenario: A2
+* Year: 2050
+
+
+```{r}
+# net average surface radiation 
+solar_stack <- process_rasters(folder_path = "/nrad_flx_ccsm3a2bcsd")
+
+# crop and mask to ca
+solar_stack_mask <- ca_crop_mask(solar_stack, NAD83, california_project)
+
+# plot
+plot(solar_stack_mask)
+
+```
+
+### Temperature (C)
+
+* Model: CCSM3
+* Emission scenario: A2
+* Year: 2050
+
+
+#### Average Daily 
+
+```{r}
+#generate a list of input rasters 
+temp_stack <- process_rasters(folder_path = "/tav_2050")
+
+# crop and mask to ca
+temp_stack_mask <- ca_crop_mask(temp_stack, NAD83, california_project)
+
+# convert to Kelvin
+tav_K <- temp_stack_mask + 273.15
+
+# plot
+plot(tav_K)
+```
+
+#### Average Maximum 
+
+```{r}
+# max temp
+tmax_stack <- process_rasters(folder_path = "/tmax_2050")
+
+# crop and mask to ca
+tmax_stack_mask <- ca_crop_mask(tmax_stack, NAD83, california_project)
+
+# convert to Kelvin
+tmax_K <- tmax_stack_mask + 273.15
+
+# plot
+plot(tmax_K)
+```
+
+#### Average Minimum 
+
+```{r}
+# max temp
+tmin_stack <- process_rasters(folder_path = "/tmin_2050")
+
+# crop and mask to ca
+tmin_stack_mask <- ca_crop_mask(tmin_stack, NAD83, california_project)
+
+# convert to Kelvin
+tmin_K <- tmin_stack_mask + 273.15
+
+# plot
+plot(tmin_K)
+```
+
+
+### Projected Energy Output Model
+
+##### Parameters
+**Gtotal**: Net solar irradiation (W/m^2)
+
+**Tav**: average temperature (K)
+
+**DTR**: daily temperature range - average temperature difference of the month
+
+**Gday**: day-time insolation - Gtotal is total solar insolation (day + night) but we only need day time 
+
+**Tday_length**: daytime length of the location (hours)
+
+**e_cell/e_ref**: efficiency of the photo voltaic (PV) panel
+
+**T_ref**: room temperature is the reference temp (25 C)
+
+**T_cell**: temperature of the solar panel
+
+**B, g c1, c2, c2**: parameters 
+
+##### Equations
+
+DTR = Tmax - Tmin
+
+Gday = Gtotal * (24/Tday_length)
+
+Tday = T + DIR/4
+
+Tcell = c1 + c2(Tday) + c3(Gday)
+
+eff = 1 - B(T_cell - T_ref) + g(log(Gday))
+
+Ppv = Gday(e_cell)
+
+
+Energy output equation
+```{r}
+
+# function to calculate energy output for each month
+energy_output = function(Gtotal, Tmin, Tmax, 
+                         Tav, Tday_length,  
+                         B, g, Tref = 25, c1 = -3.75, 
+                         c2 = 1.14, c3 = 0.0175){
+  
+  # calculate the average daily temperature range 
+  DTR = Tmax - Tmin
+  
+  # Calculate average daytime temperature
+  Tday = Tav + DTR/4
+  
+  # calculate daytime solar radiation
+  Gday = Gtotal*(24/Tday_length)
+  
+  # calculate temperature of PV cell 
+  Tcell = c1 + c2*Tday + c3*Gday
+  
+  # calculate efficiency of solar cells
+  eff = 1 - B*(Tcell - Tref) + g*log10(Gday)
+  
+  # calculate solar output
+  solar_output = Gday*eff*0.2
+  
+  return(solar_output)
+  
+}
+
+```
+
+
+```{r}
+#Write a wrapper function for SA
+
+max_solar_output = function(Gtotal, Tmin, Tmax, Tav, Tday_length, B, g, c1, c2, c3){
+  solar_energy <- energy_output(Gtotal = Gtotal,
+                             Tmin = Tmin,
+                             Tmax = Tmax,
+                             Tav = Tav,
+                             Tday_length = Tday_length,
+                             g = g,
+                             B = B,
+                             c1 = c1,
+                             c2 = c2,
+                             c3 = c3)
+  solar_energy_2050 <- mean(solar_energy, na.rm = TRUE)
+  county_energy <- raster::extract(solar_energy_2050, ca_counties, fun=mean)
+  ca_counties_id <- ca_counties %>% 
+    mutate(num_id = row_number()) 
+  county_energy_sp <- as.data.frame(county_energy) %>% 
+    mutate(num_id = row_number()) %>%
+    left_join(ca_counties_id, by = "num_id") %>%
+    rename(energy_output = V1)
+  
+  return(max(county_energy_sp$energy_output))
+
+}
+```
+
+#LHS
+
+```{r}
+#Evaluating two material parameters
+factors = c("B", "g", "c1", "c2", "c3")
+
+#Run 2000 sets
+nsets = 2000
+
+#Choose distributions
+q = rep("qnorm", 5)
+q.arg = list(list(mean=-4.5*10^-3, sd=4.5*10^-3/4), list(mean=0.05*10^-3, sd=0.05*10^-3/4), list(mean=-3.75, sd=3.75/4), list(mean=1.14, sd=1.14/4), list(mean=0.0175, sd=0.0175/4))
+
+#Generate samples from LHS
+sens_materials_lhs = LHS(NULL, factors, nsets, q, q.arg)
+sens_pars_lhs = get.data(sens_materials_lhs)
+
+
+#Calculate and store results
+tmp = mapply(FUN = max_solar_output, B = sens_pars_lhs$B, g = sens_pars_lhs$g, c1 = sens_pars_lhs$c1, c2 = sens_pars_lhs$c2, c3 = sens_pars_lhs$c3, MoreArgs = list(Gtotal = solar_stack_mask, Tmin = tmin_stack_mask, Tmax = tmax_stack_mask, Tav = temp_stack_mask, Tday_length = 12))
+
+sens_result_lhs = matrix(tmp)
+colnames(sens_result_lhs) = c("maximum_output")
+
+
+```
+
+```{r}
+sens_materials_lhs = pse::tell(sens_materials_lhs, t(sens_result_lhs), res.names = c("maximum_output"))
+# x-y parameter plot
+pse::plotscatter(sens_materials_lhs, col="blue", cex=5)
+# cummulative distribution
+pse::plotecdf(sens_materials_lhs,  col="blue", cex=5)
+# partial rank correlation
+pse::plotprcc(sens_materials_lhs, ylab = "Correlation")
+sens_materials_lhs$prcc
+```
+

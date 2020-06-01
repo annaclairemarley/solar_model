@@ -84,8 +84,8 @@ df_LCOE <- df_LCOE %>%
 
 ```{r}
 ggplot(df_LCOE) +
-  geom_sf(aes(fill = LCOE), color = NA) +
-  scale_fill_paletteer_c("ggthemes::Orange") +
+  geom_sf(aes(fill = LCOE), size = 0.2) +
+  scale_fill_paletteer_c("scico::hawaii", direction = -1) +
   scale_size(guide = "none") + #Removing size legend
   labs(fill = "LCOE ($/MWh)")
   
