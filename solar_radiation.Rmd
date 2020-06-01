@@ -298,7 +298,7 @@ county_energy_sp <- as.data.frame(county_energy) %>%
   left_join(ca_counties_id, by = "num_id") %>% 
   rename(energy_output = V1) %>% 
   select(-num_id) %>% 
-  arrange(-energy_output) %>% 
+  arrange(energy_output) %>% 
   mutate(score = row_number())
 
 # graph

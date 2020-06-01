@@ -434,7 +434,7 @@ suitable_pct_map <- ggplot() +
 
 outputs <- map_suitability_fun(suitable_raster = suitable)
 
-outputs
+
 
 
 ```

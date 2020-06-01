@@ -91,3 +91,9 @@ ggplot(df_LCOE) +
   
 ```
 
+```{r}
+
+solar_suit_econ <- left_join(df_LCOE, outputs[[3]], by = "")
+
+```
+
