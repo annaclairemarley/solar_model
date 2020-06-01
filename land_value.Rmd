@@ -47,7 +47,8 @@ land_value_2019 <- raw_df %>%
   mutate(unitLand = as.numeric(intLand/area))
 
 # make the CRS consistent
-land_value_2019 <- st_transform(land_value_2019, NAD83)
+land_value_2019 <- st_transform(land_value_2019, NAD83) %>% 
+  rename(county = strCounty)
 ```
 
 ```{r}
@@ -62,10 +63,13 @@ ggplot(land_value_2019) +
 ```{r}
 #creating a data.frame storing the average solar output
 
-solar_energy_simple <- county_energy_sp %>% 
+county_solar <- read_csv(here("generated_files","county_solar_2020.csv"))
+
+solar_energy_simple <- county_solar %>% 
   select(-geom) %>% 
   mutate(strCounty = str_to_title(str_remove(ID, "california,"))) %>% 
-  select(-ID, -score)
+  select(-ID) %>% 
+  rename(score_gen = score)
 
 
 df_LCOE <- full_join(solar_energy_simple, land_value_2019) %>% 
@@ -77,9 +81,13 @@ source("LCOE.R")
 
 df_LCOE <- df_LCOE %>% 
   mutate(LCOE = LCOE(gen = energy_output, size = 20000, total_om = 8.12, instant_cost = 1585, installed_cost = 1861, land_cost = unitLand)) %>% 
-  st_as_sf()
+  st_as_sf() %>% 
+  arrange(-LCOE) %>% 
+  mutate(score_econ = row_number())
 
 #final_LCOE <- mapply(LCOE, gen = df_LCOE$energy_output, MoreArgs = list(size = 20000, total_om = 8.12, #instant_cost = 1742, installed_cost = 1861))
+
+write_csv(df_LCOE, "generated_files/LCOE.csv")
 ```
 
 ```{r}
