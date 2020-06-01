@@ -10,21 +10,9 @@ Data is separated into:
 - In: renamed data used in R
 - Out: data saved from R
 
-Layers that won't change through time for the suitability analysis:
-- slope
-- open water
-
-Layers that could change through time and could be used as optional inputs for the land suitability submodel:
-- developed
-- forest and woodland
-- agricultural
-- aquatic vegetation
-
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
-# Load required libraries
+# Load required libraries 
 library(tidyverse)
 library(raster)
 library(sf)
@@ -36,7 +24,7 @@ library(ggplot2)
 library(ggspatial)
 library(ggrepel)
 library(paletteer)
-```
+``` 
 
 Set-Up for Downloading Data Using Google Drive File Stream
 ```{r}
