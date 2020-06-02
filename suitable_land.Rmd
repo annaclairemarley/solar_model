@@ -65,12 +65,12 @@ st_write(CA_proj, paste0(out, "/CA_proj.shp"), delete_layer = TRUE)
 # CA Counties
 ```{r}
 # grab US counties from maps package
-counties_CA <- st_as_sf(maps::map("county", "california", plot = FALSE, fill = TRUE))
+counties_CA <- st_as_sf(maps::map("county", "california", plot = FALSE, fill = TRUE)) %>% 
+  mutate(County = str_to_title(str_remove(ID, "california,"))) %>% 
+  select(-ID)
 
 # reproject, remove state from county names, and calculate area
 counties_proj <- st_transform(counties_CA, NAD83) %>% 
-  separate("ID", c("State", "County"), sep=",") %>% 
-  dplyr::select(-"State") %>% 
   mutate(area = st_area(geom))
 
 # Save shapefile
@@ -174,7 +174,6 @@ counties_proj$suitable_pct <- NA
 
 # Loop through each county
 for(i in 1:nrow(counties_proj)) {
-  print(i)
   
   # Select ith county
   county <- counties_proj[i, ]
@@ -243,13 +242,12 @@ suitable_df <- as.data.frame(suitable, xy = TRUE)
 suitable_map <- ggplot() +
   geom_raster(data = suitable_df,
                mapping = aes(x = x, y = y,  fill = layer )) +
-  
   geom_sf(data = counties_proj,
           fill = "transparent",
           color = "gray30", 
           size = 0.1) +
   scale_fill_paletteer_c("ggthemes::Temperature Diverging",
-                         na.value = "transparent") +
+                        na.value = "transparent") +
    theme_minimal() +
   coord_sf(datum=NA) +
   labs(x = "", y = "", title = "Solar Energy in CA") +
@@ -306,9 +304,6 @@ plot(suitable_masked)
 # Return raster
 return(suitable_masked)
 }
-
-# Test function
-suitable <- suitability_fun(land_cover_raster = land_cover)
   
 ```
 
@@ -316,7 +311,7 @@ suitable <- suitability_fun(land_cover_raster = land_cover)
 # Function to map suitability by county
 ```{r}
 map_suitability_fun <- function(suitable_raster) {
-
+  
   ### Map of suitable raster with county boundaries ###
   # Read CA counties file
   counties_proj <- read_sf(dsn = out,
@@ -327,27 +322,27 @@ map_suitability_fun <- function(suitable_raster) {
                      layer = "counties_proj")
   
   # Convert suitable raster to data frame
-  suitable_df <- as.data.frame(suitable, xy = TRUE)
+  suitable_df <- as.data.frame(suitable_raster, xy = TRUE)
   
- # Map
-suitable_map <- ggplot() +
-  geom_raster(data = suitable_df,
-               mapping = aes(x = x, y = y,  fill = layer )) +
-  
-  geom_sf(data = counties_proj,
-          fill = "transparent",
-          color = "gray30", 
-          size = 0.1) +
-  scale_fill_paletteer_c("ggthemes::Temperature Diverging",
-                         na.value = "transparent") +
-   theme_minimal() +
-  coord_sf(datum=NA) +
-  labs(x = "", y = "", title = "Solar Energy in CA") +
-  annotation_scale(location = "bl", style = "ticks") # scale bar
+  # Map
+  suitable_raster_map <- ggplot() +
+    geom_raster(data = suitable_df,
+                mapping = aes(x = x, y = y,  fill = layer)) +
+    geom_sf(
+      data = counties_proj,
+      fill = "transparent",
+      color = "gray30",
+      size = 0.1
+    ) +
+    scale_fill_paletteer_c("ggthemes::Temperature Diverging",
+                           na.value = "transparent") +
+    theme_minimal() +
+    coord_sf(datum = NA) +
+    labs(x = "", y = "", title = "Suitable Land for Solar Energy Generation in CA") +
+    annotation_scale(location = "bl", style = "ticks") # scale bar
   
   
   ### Calculating % of suitable land by county ###
-  
   # Add suitable area column
   counties_proj$suitable_area <- NA
   
@@ -356,17 +351,15 @@ suitable_map <- ggplot() +
   
   # Loop through each county
   for (i in 1:nrow(counties_proj)) {
-    print(i)
-    
+  
     # Select ith county
-    county <- counties_proj[i,]
+    county <- counties_proj[i, ]
     
     # Crop
-    suitable_cropped <- crop(suitable_raster, CA_proj)
+    suitable_cropped <- crop(suitable_raster, county)
     
     # Mask
-    suitable_masked <-
-      mask(suitable_cropped, CA_proj, progress = 'text')
+    suitable_masked <- mask(suitable_cropped, county, progress = 'text')
     
     # Count suitable cells
     count <-  freq(suitable_masked, value = 1)
@@ -375,183 +368,71 @@ suitable_map <- ggplot() +
     counties_proj$suitable_area[i] <- count * 1000 * 1000
     
     # Calculate area percentage
-    counties_proj$suitable_pct[i] <-
-      counties_proj$suitable_area[i] / counties_proj$area[i] * 100
+    counties_proj$suitable_pct[i] <- counties_proj$suitable_area[i] / counties_proj$area[i] * 100
   }
   
   ### Map percent suitable by county ###
   # Labels
-  counties_points <-
-    cbind(counties_proj, st_coordinates(st_centroid(counties_proj$geometry)))
+  counties_points <- cbind(counties_proj, st_coordinates(st_centroid(counties_proj$geometry)))
   
   # Map
-suitable_pct_map <- ggplot() +
-  geom_sf(data = counties_proj,
-          color = "gray30", 
-          size = 0.1,
-          aes(fill = counties_proj$suitable_pct)) +
-  scale_fill_paletteer_c("ggthemes::Temperature Diverging") +
-  geom_text_repel( data = counties_points,
-                   size = 2,
-             aes( x = X, y = Y,label = County)) + 
-  theme_minimal() +
-  coord_sf(datum=NA) +
-  labs(x = "", y = "", title = "Solar Energy in CA") +
-  annotation_scale(location = "bl", style = "ticks") # scale bar
+  suitable_pct_map <- ggplot() +
+    geom_sf(
+      data = counties_proj,
+      color = "gray30",
+      size = 0.1,
+      aes(fill = counties_proj$suitable_pct)) +
+    scale_fill_paletteer_c("ggthemes::Temperature Diverging") +
+    theme_minimal() +
+    coord_sf(datum = NA) +
+    labs(x = "", y = "", title = "Suitable Land by County in CA") +
+    annotation_scale(location = "bl", style = "ticks") # scale bar
   
   ### Calculating county rankings ###
   # Create rank column
-  counties_proj$rank <- NA
+  counties_proj$rank_land <- NA
   
   # Rank counties by % of suitable land
-  counties_proj$rank[order(counties_proj$suitable_pct)] <-
+  counties_proj$rank_land[order(counties_proj$suitable_pct)] <-
     1:nrow(counties_proj)
   
   # Rank dataframe
-  counties_rank_df <- as.data.frame(counties_proj) %>% 
-  select(County, rank)
+  counties_rank_df <- as.data.frame(counties_proj) %>%
+    select(County, rank_land )
   
   ### Map rankings ###
   
-  
-  return(list(suitable_map, suitable_pct_map, counties_rank_df))
+  # Return list with rank dataframe, raster map, and % suitable land map
+  return(list(suitable_raster_map, suitable_pct_map, counties_rank_df))
   
 }
 
-# Test function
-
-outputs <- map_suitability_fun(suitable_raster = suitable)
-
-
-
-
 ```
 
-
-#########################################################
-# Additional data
-#########################################################
-
-# Transmission lines
+# Test functions with 2020 data
 ```{r}
-# Read File
-transmission_lines <- read_sf(dsn = paste0(path, "/transmission_lines"),
-                layer = "transmission_lines") %>% 
-  st_transform(NAD83)
+# Read 2020 land use/land cover raster
+land_cover_2020 <- raster(paste0(In, "land_cover_2020.tif"))
 
-# Plot
-plot(transmission_lines$geometry)
+# Test land suitability for all CA function
+suitable_2020 <- suitability_fun(land_cover_raster = land_cover_2020)
+
+# Test mapping by county function
+county_maps_2020 <- map_suitability_fun(suitable_raster = suitable_2020)
+county_maps_2020
 ```
 
-# Lakes and reservoires
+# Test functions with 2050 data
 ```{r}
-# Read File
-lakes <- read_sf(dsn = paste0(path, "/NHD_MajorLakesAndReservoirs"),
-                layer = "NHD_MajorLakesAndReservoirs")
-# Plot
-plot(lakes$geometry)
+# Read 2050 land use/land cover raster
+land_cover_2050 <- raster(paste0(In, "land_cover_2050.tif"))
+
+# Test land suitability for all CA function
+suitable_2050 <- suitability_fun(land_cover_raster = land_cover_2050)
+
+# Test mapping by county function
+county_maps_2050 <- map_suitability_fun(suitable_raster = suitable_2050)
+county_maps_2050
 ```
-
-# Major rivers
-```{r}
-# Read File
-rivers <- read_sf(dsn = paste0(path, "/NHD_MajorRivers"),
-                layer = "NHD_MajorRivers") %>% 
-  st_zm(drop = TRUE)
-
-# Plot
-plot(rivers$geometry)
-```
-
-# Roads
-```{r}
-# Read File
-roads <- read_sf(dsn = paste0(path, "/tl_2015_06_prisecroads"),
-                layer = "tl_2015_06_prisecroads") %>% 
-  st_transform(NAD83)
-
-# Plot
-plot(roads$geometry)
-```
-
-Buffered transmission lines
-```{r}
-# Buffer 10,000 m from transmission lines and merge polygons
-tl_buffered_10000 <- st_buffer(transmission_lines$geometry, 10000) %>% 
-  st_union() %>% 
-  as_Spatial()
-
-# Buffer 500 m from transmission lines and merge polygons
-tl_buffered_500 <- st_buffer(transmission_lines$geometry, 500) %>% 
-  st_union() %>% 
-  as_Spatial()
-
-# Plot
-plot(tl_buffered_10000)
-plot(tl_buffered_500)
-
-# Blank raster
-r <- raster(nrow = nrow(land_cover), ncol = ncol(land_cover), crs = NAD83, ext = extent(tl_buffered_10000))
-
-# Rasterize buffered transmission lines
-# Note: use progress='text' to see progress
-tl_raster_10000 <- rasterize(tl_buffered_10000, r, field = 1, progress='text')
-tl_raster_500 <- rasterize(tl_buffered_500, r, field = 0, background = 1, progress='text')
-
-# Plot
-plot(tl_raster_10000)
-plot(tl_raster_500)
-
-# Overlay two rasters
-tl_raster <- overlay(tl_raster_10000, tl_raster_500, fun = function(a,b) {a*b}, progress='text')
-
-# Plot
-plot(tl_raster)
-
-# Save raster
-writeRaster(x = tl_raster, filename = paste0(path,"/tl_raster.tif"), overwrite = T)
-
-```
-
-Buffered roads
-```{r}
-# Buffer 10,000 m from roads and merge polygons
-roads_buffered_10000 <- st_buffer(roads$geometry, 10000) %>% 
-  st_union() %>% 
-  as_Spatial()
-
-# Buffer 500 m from roads and merge polygons
-roads_buffered_500 <- st_buffer(roads$geometry, 500) %>% 
-  st_union() %>% 
-  as_Spatial()
-
-# Plot
-plot(roads_buffered_10000)
-plot(roads_buffered_500)
-
-# Blank raster
-r <- raster(nrow = nrow(land_cover), ncol = ncol(land_cover), crs = NAD83, ext = extent(roads_buffered_10000))
-
-# Rasterize buffered roads
-# Note: use progress='text' to see progress
-roads_raster_10000 <- rasterize(roads_buffered_10000, r, field = 1, progress='text')
-roads_raster_500 <- rasterize(roads_buffered_500, r, field = 0, background = 1, progress='text')
-
-# Plot
-plot(roads_raster_10000)
-plot(roads_raster_500)
-
-# Overlay two rasters
-roads_raster <- overlay(roads_raster_10000, roads_raster_500, fun = function(a,b) {a*b}, progress='text')
-
-# Plot
-plot(roads_raster)
-
-# Save raster
-writeRaster(x = roads_raster, filename = paste0(path,"/roads_raster.tif"), overwrite = T)
-
-```
-
-
 
 
