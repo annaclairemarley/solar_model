@@ -212,7 +212,7 @@ write.csv(counties_proj, paste0(out,'counties_area.csv'))
 # Suitable Land % Map 
 ```{r}
 # Labels
-counties_points<- cbind(counties_proj, st_coordinates(st_centroid(counties_proj$geometry)))
+# counties_points<- cbind(counties_proj, st_coordinates(st_centroid(counties_proj$geometry)))
 
 # Map
 suitable_pct_map <- ggplot() +
@@ -220,13 +220,11 @@ suitable_pct_map <- ggplot() +
           color = "gray30", 
           size = 0.1,
           aes(fill = counties_proj$suitable_pct)) +
-  scale_fill_paletteer_c("ggthemes::Temperature Diverging") +
-  geom_text_repel( data = counties_points,
-                   size = 2,
-             aes( x = X, y = Y,label = County)) + 
+  scale_fill_paletteer_c("ggthemes::Temperature Diverging",
+                         name = "Suitable Land (%)") + 
   theme_minimal() +
   coord_sf(datum=NA) +
-  labs(x = "", y = "", title = "Solar Energy in CA") +
+  labs(x = "", y = "", title = "Suitable Land in CA by County") +
   annotation_scale(location = "bl", style = "ticks") # scale bar
 
 suitable_pct_map
@@ -250,10 +248,28 @@ suitable_map <- ggplot() +
                         na.value = "transparent") +
    theme_minimal() +
   coord_sf(datum=NA) +
-  labs(x = "", y = "", title = "Solar Energy in CA") +
+  labs(x = "", y = "", title = "Suitable Land in CA by County") +
   annotation_scale(location = "bl", style = "ticks") # scale bar
 
 suitable_map
+```
+
+# Rank map
+```{r}
+# Map
+suitable_rank_map <- ggplot() +
+  geom_sf(data = counties_proj,
+          color = "gray30", 
+          size = 0.1,
+          aes(fill = counties_proj$rank)) +
+  scale_fill_paletteer_c("ggthemes::Temperature Diverging",
+                         name = "Rank") + 
+  theme_minimal() +
+  coord_sf(datum=NA) +
+  labs(x = "", y = "", title = "Suitable Land in CA by County") +
+  annotation_scale(location = "bl", style = "ticks") # scale bar
+
+suitable_rank_map
 ```
 
 
@@ -310,7 +326,7 @@ return(suitable_masked)
 
 # Function to map suitability by county
 ```{r}
-map_suitability_fun <- function(suitable_raster) {
+map_suitability_fun <- function(suitable_raster, year) {
   
   ### Map of suitable raster with county boundaries ###
   # Read CA counties file
@@ -338,7 +354,7 @@ map_suitability_fun <- function(suitable_raster) {
                            na.value = "transparent") +
     theme_minimal() +
     coord_sf(datum = NA) +
-    labs(x = "", y = "", title = "Suitable Land for Solar Energy Generation in CA") +
+    labs(x = "", y = "", title = paste0("Suitable Land in CA by County in ", year)) +
     annotation_scale(location = "bl", style = "ticks") # scale bar
   
   
@@ -372,9 +388,6 @@ map_suitability_fun <- function(suitable_raster) {
   }
   
   ### Map percent suitable by county ###
-  # Labels
-  counties_points <- cbind(counties_proj, st_coordinates(st_centroid(counties_proj$geometry)))
-  
   # Map
   suitable_pct_map <- ggplot() +
     geom_sf(
@@ -382,10 +395,11 @@ map_suitability_fun <- function(suitable_raster) {
       color = "gray30",
       size = 0.1,
       aes(fill = counties_proj$suitable_pct)) +
-    scale_fill_paletteer_c("ggthemes::Temperature Diverging") +
+    scale_fill_paletteer_c("ggthemes::Temperature Diverging",
+                            name = "Suitable Land (%)") +
     theme_minimal() +
     coord_sf(datum = NA) +
-    labs(x = "", y = "", title = "Suitable Land by County in CA") +
+    labs(x = "", y = "", title = paste0("Suitable Land in CA by County in ", year)) +
     annotation_scale(location = "bl", style = "ticks") # scale bar
   
   ### Calculating county rankings ###
@@ -401,9 +415,20 @@ map_suitability_fun <- function(suitable_raster) {
     select(County, rank_land )
   
   ### Map rankings ###
+  suitable_rank_map <- ggplot() +
+  geom_sf(data = counties_proj,
+          color = "gray30", 
+          size = 0.1,
+          aes(fill = counties_proj$rank_land)) +
+  scale_fill_paletteer_c("ggthemes::Temperature Diverging",
+                         name = "Rank") + 
+  theme_minimal() +
+  coord_sf(datum=NA) +
+  labs(x = "", y = "", title = paste0("Suitable Land in CA by County in ", year)) +
+  annotation_scale(location = "bl", style = "ticks") # scale bar
   
   # Return list with rank dataframe, raster map, and % suitable land map
-  return(list(suitable_raster_map, suitable_pct_map, counties_rank_df))
+  return(list(suitable_raster_map, suitable_pct_map, suitable_rank_map, counties_rank_df))
   
 }
 
@@ -418,7 +443,7 @@ land_cover_2020 <- raster(paste0(In, "land_cover_2020.tif"))
 suitable_2020 <- suitability_fun(land_cover_raster = land_cover_2020)
 
 # Test mapping by county function
-county_maps_2020 <- map_suitability_fun(suitable_raster = suitable_2020)
+county_maps_2020 <- map_suitability_fun(suitable_raster = suitable_2020, year = 2020)
 county_maps_2020
 ```
 
@@ -431,7 +456,7 @@ land_cover_2050 <- raster(paste0(In, "land_cover_2050.tif"))
 suitable_2050 <- suitability_fun(land_cover_raster = land_cover_2050)
 
 # Test mapping by county function
-county_maps_2050 <- map_suitability_fun(suitable_raster = suitable_2050)
+county_maps_2050 <- map_suitability_fun(suitable_raster = suitable_2050, year = 2050)
 county_maps_2050
 ```
 
