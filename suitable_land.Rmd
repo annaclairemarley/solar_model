@@ -281,10 +281,10 @@ suitability_fun <- function (land_cover_raster,
   
   ### Slope ###
   # Read slope file
-  slope_CA <- raster(paste0(out,"slope_CA.tif"))
+  slope_CA <- raster("generated_files/slope_CA.tif")
   
   # Read CA file
-  CA_proj <- read_sf(dsn = out,
+  CA_proj <- read_sf(dsn = "generated_files/",
                 layer = "counties_proj")
   
   # Reclassify matrix ( 0s into 1s and viceversa)
@@ -330,11 +330,11 @@ map_suitability_fun <- function(suitable_raster, year) {
   
   ### Map of suitable raster with county boundaries ###
   # Read CA counties file
-  counties_proj <- read_sf(dsn = out,
+  counties_proj <- read_sf(dsn = "generated_files/",
                            layer = "counties_proj")
   
   # Read CA file
-  CA_proj <- read_sf(dsn = out,
+  CA_proj <- read_sf(dsn = "generated_files/",
                      layer = "counties_proj")
   
   # Convert suitable raster to data frame
@@ -412,7 +412,7 @@ map_suitability_fun <- function(suitable_raster, year) {
   
   # Rank dataframe
   counties_rank_df <- as.data.frame(counties_proj) %>%
-    select(County, rank_land )
+    dplyr::select(County, rank_land )
   
   ### Map rankings ###
   suitable_rank_map <- ggplot() +
@@ -437,7 +437,7 @@ map_suitability_fun <- function(suitable_raster, year) {
 # Test functions with 2020 data
 ```{r}
 # Read 2020 land use/land cover raster
-land_cover_2020 <- raster(paste0(In, "land_cover_2020.tif"))
+land_cover_2020 <- raster("generated_files/land_cover_2020.tif")
 
 # Test land suitability for all CA function
 suitable_2020 <- suitability_fun(land_cover_raster = land_cover_2020)
@@ -450,7 +450,7 @@ county_maps_2020
 # Test functions with 2050 data
 ```{r}
 # Read 2050 land use/land cover raster
-land_cover_2050 <- raster(paste0(In, "land_cover_2050.tif"))
+land_cover_2050 <- raster("generated_files/land_cover_2050.tif")
 
 # Test land suitability for all CA function
 suitable_2050 <- suitability_fun(land_cover_raster = land_cover_2050)
