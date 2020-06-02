@@ -67,7 +67,7 @@ st_write(CA_proj, paste0(out, "/CA_proj.shp"), delete_layer = TRUE)
 # grab US counties from maps package
 counties_CA <- st_as_sf(maps::map("county", "california", plot = FALSE, fill = TRUE)) %>% 
   mutate(County = str_to_title(str_remove(ID, "california,"))) %>% 
-  select(-ID)
+  dplyr::select(-ID)
 
 # reproject, remove state from county names, and calculate area
 counties_proj <- st_transform(counties_CA, NAD83) %>% 
@@ -234,18 +234,19 @@ suitable_pct_map
 # Suitable Land Map (raster + counties)
 ```{r}
 # Convert suitable raster to data frame
-suitable_df <- as.data.frame(suitable, xy = TRUE)
+suitable_df <- as.data.frame(suitable_2020, xy = TRUE)
 
 # Map
 suitable_map <- ggplot() +
   geom_raster(data = suitable_df,
-               mapping = aes(x = x, y = y,  fill = layer )) +
+               mapping = aes(x = x, y = y,  fill = factor(layer))) +
+   scale_fill_manual(name = "",
+                     values=c(colors[1], colors[2]),
+                     labels=c("Excluded", "Suitable", "")) +
   geom_sf(data = counties_proj,
           fill = "transparent",
           color = "gray30", 
           size = 0.1) +
-  scale_fill_paletteer_c("ggthemes::Temperature Diverging",
-                        na.value = "transparent") +
    theme_minimal() +
   coord_sf(datum=NA) +
   labs(x = "", y = "", title = "Suitable Land in CA by County") +
@@ -337,25 +338,27 @@ map_suitability_fun <- function(suitable_raster, year) {
   CA_proj <- read_sf(dsn = "generated_files/",
                      layer = "counties_proj")
   
+  # Get paletteer colors
+  colors <- paletteer_c("ggthemes::Temperature Diverging", n = 2)
+  
   # Convert suitable raster to data frame
   suitable_df <- as.data.frame(suitable_raster, xy = TRUE)
   
   # Map
   suitable_raster_map <- ggplot() +
-    geom_raster(data = suitable_df,
-                mapping = aes(x = x, y = y,  fill = layer)) +
-    geom_sf(
-      data = counties_proj,
-      fill = "transparent",
-      color = "gray30",
-      size = 0.1
-    ) +
-    scale_fill_paletteer_c("ggthemes::Temperature Diverging",
-                           na.value = "transparent") +
-    theme_minimal() +
-    coord_sf(datum = NA) +
-    labs(x = "", y = "", title = paste0("Suitable Land in CA by County in ", year)) +
-    annotation_scale(location = "bl", style = "ticks") # scale bar
+  geom_raster(data = suitable_df,
+               mapping = aes(x = x, y = y,  fill = factor(layer))) +
+   scale_fill_manual(name = "",
+                     values=c(colors[1], colors[2]),
+                     labels=c("Excluded", "Suitable", "")) +
+  geom_sf(data = counties_proj,
+          fill = "transparent",
+          color = "gray30", 
+          size = 0.1) +
+   theme_minimal() +
+  coord_sf(datum=NA) +
+  labs(x = "", y = "", title = "Suitable Land in CA by County") +
+  annotation_scale(location = "bl", style = "ticks") # scale bar
   
   
   ### Calculating % of suitable land by county ###
@@ -432,6 +435,7 @@ map_suitability_fun <- function(suitable_raster, year) {
   
 }
 
+
 ```
 
 # Test functions with 2020 data
@@ -460,4 +464,13 @@ county_maps_2050 <- map_suitability_fun(suitable_raster = suitable_2050, year = 
 county_maps_2050
 ```
 
+```{r}
+# Adding ranks to LCOE files
+LCOE <- read_csv("generated_files/LCOE.csv") %>% 
+  rename(County = county) %>% 
+  left_join(county_maps_2020[[4]], by = "County")
+
+# Save
+write_csv(LCOE, "generated_files/LCOE.csv")
+```
 
