@@ -17,6 +17,7 @@ library(sf)
 library(tidyverse)
 library(paletteer)
 library(stringr)
+library(RColorBrewer)
 ```
 
 ## Calculate projected solar energy output in CA given solar radiation projections
@@ -298,7 +299,9 @@ county_energy_sp <- as.data.frame(county_energy) %>%
 
 ggplot(st_as_sf(county_energy_sp)) +
   geom_sf(aes(fill = energy_output)) +
-  scale_fill_paletteer_c("ggthemes::Temperature Diverging") +
+ scale_fill_paletteer_c("ggthemes::Temperature Diverging", 
+                        limits = c(32,44),
+                        breaks = c(32, 34, 36, 38, 40, 42)) +
   labs(
     fill = "Energy Ouput (W/m^2)"
   ) +
@@ -321,7 +324,9 @@ per_change <- ((s_2050 - s_2020)/s_2020)*100
 # convert to df for plotting 
 per_change_df <- raster::as.data.frame(per_change, xy = TRUE)
 
-plot(per_change, col = rev(heat.colors(10)))
+cols <- brewer.pal(n = 10, "Spectral")
+
+plot(per_change, col = rev(cols))
 
 ```
 
