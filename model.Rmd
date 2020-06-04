@@ -9,8 +9,122 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+This Rmarkdown runs through the solar suitability model with sample data cleaned and processed in the data_cleaning.Rmd
+
+Load libraries
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(raster)
+library(maps)
+library(sf)
+library(paletteer)
+library(stringr)
+library(RColorBrewer)
+```
+
+**Path to functions for the model**
+```{r}
+model_path <- "./Functions/model/"
+```
+
+# CA counties
+
+```{r}
+## counties ##
+ca_counties <- st_as_sf(maps::map("county", plot = FALSE, fill = TRUE)) %>% 
+  filter(str_detect(ID, 'california'))
+
+# make the polygon the same CRS as rasters
+county_project <- st_transform(ca_counties, NAD83)
+```
 
 ## Projected Solar Panel Energy Output Model
+
+```{r}
+# source function
+source(paste0(model_path, "energy_output.R"))
+```
+
+##### Parameters
+**Gtotal**: Net solar irradiation (W/m^2)
+
+**Tmin**: minimum temperature (degrees C)
+
+**Tmax**: maximum temperature (degrees C)
+
+**Tav**: average temperature (degrees C)
+
+**Tday_length**: daytime length of the location (hours)
+
+**T_ref**: room temperature is the reference temp (25 C)
+
+**B, g c1, c2, c2**: parameters of solar panel technology
+
+Read in raster files for model
+```{r}
+# 2020 projections
+solar_stack_mask_20 <- stack("./generated_files/solar_stack_mask_20.tif") # Gtotal
+tmin_stack_mask_20 <- stack("./generated_files/tmin_stack_mask_20.tif") # tmin
+tmax_stack_mask_20 <- stack("./generated_files/tmax_stack_mask_20.tif") # tmax
+temp_stack_mask_20 <- stack("./generated_files/temp_stack_mask_20.tif") # tac
+```
+
+```{r, warning = FALSE}
+# run solar energy output model
+solar_energy <- energy_output(Gtotal = solar_stack_mask_20,
+                             Tmin = tmin_stack_mask_20,
+                             Tmax = tmax_stack_mask_20,
+                             Tav = temp_stack_mask_20,
+                             Tday_length = 12,
+                             g = 0.05*10^-3,
+                             B = -4.5*10^-3)
+
+# rename bands
+names(solar_energy) <- c("jan", "feb", "mar", "apr", "may", "jun", 
+                    "jul", "aug", "sep", "oct", "nov", "dec")
+```
+
+##### Projected Solar Panel Energy Output in CA for 2020:
+```{r}
+plot(solar_energy)
+```
+
+### Visualization
+```{r}
+# average across the raster stack to get annual average
+solar_energy_av <- mean(solar_energy, na.rm = TRUE)
+plot(solar_energy_av)
+
+# extract average energy output data for each county and join to counties shapefile
+county_energy <- raster::extract(solar_energy_av, ca_counties, fun=mean)
+
+# give ca counties shapefile and county_energy matching row ids and join
+ca_counties_id <- ca_counties %>% 
+  mutate(num_id = row_number()) 
+
+#tidy
+county_energy_sp <- as.data.frame(county_energy) %>% 
+  mutate(num_id = row_number()) %>% 
+  left_join(ca_counties_id, by = "num_id") %>% 
+  mutate(county = str_to_title(str_remove(ID, "california,"))) %>% 
+  rename(energy_output = V1) %>% 
+  dplyr::select(-num_id) %>% 
+  arrange(energy_output) %>% 
+  mutate(score = row_number())
+
+# graph
+ggplot(st_as_sf(county_energy_sp)) +
+  geom_sf(aes(fill = energy_output)) +
+ scale_fill_paletteer_c("ggthemes::Temperature Diverging", 
+                        limits = c(32,44),
+                        breaks = c(32, 34, 36, 38, 40, 42)) +
+  labs(
+    fill = "Energy Ouput (W/m^2)"
+  ) +
+  theme_classic() +
+  scale_size(guide = "none")
+
+```
 
 
 ## Sensitivity Analysis

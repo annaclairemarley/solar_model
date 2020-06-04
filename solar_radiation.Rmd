@@ -141,8 +141,6 @@ plot(solar_stack_mask)
 * Model: CCSM3
 * Emission scenario: A2
 
-
-
 #### Average Daily 
 
 ```{r}
