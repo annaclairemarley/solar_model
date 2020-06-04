@@ -1,11 +1,26 @@
 ---
-title: "Final Report"
-author: "AnnaClaire Marley"
-date: "6/4/2020"
-output: html_document
+documentclass: report
+fontsize: 11pt
+header-includes:
+- \usepackage{crimson}
+- \usepackage[T1]{fontenc}
+- \usepackage[margin=1in]{geometry}
+- \renewcommand{\baselinestretch}{1}
+- \usepackage{enumitem}
+output:
+  pdf_document:
+    number_sections: no
+  html_document:
+    df_print: paged
+  word_document: default
+urlcolor: blue
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+\text{\bfseries\LARGE{Solar Suitability Model}}
+\newline
+\text{\Large{AnnaClaire Marley, Anna Calle, Ted Jiang}}
+\newline
+\text{\Large{June 4, 2020}}
+\newline
+\noindent\makebox[\linewidth]{\rule{\textwidth}{0.4pt}}
 
