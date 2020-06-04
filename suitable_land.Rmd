@@ -120,57 +120,6 @@ Land use/land cover (LULC) class identification code.
 11 = SnowIce, 
 12 = Perennial Agriculture
 
-# Function to obtain suitability raster of CA
-```{r}
-suitability_fun <- function (land_cover_raster,
-                             slope_threshold = 5,
-                             land_cover_suitable_values = c(5, 7, 10) ) {
-  
-  ### Slope ###
-  # Read slope file
-  slope_CA <- raster("generated_files/slope_CA.tif")
-  
-  # Read CA file
-  CA_proj <- read_sf(dsn = "generated_files/",
-                layer = "counties_proj")
-  
-  # Reclassify matrix ( 0s into 1s and viceversa)
-rcl_mat_slope <- c(-Inf, slope_threshold, 1,
-                  slope_threshold, Inf, 0)
-  
-  # Reclassify
-slope_binary <- reclassify(slope_CA, rcl = rcl_mat_slope, progress = 'text')
-
-
-### Land cover ###
-# Select pixels with those values
-suitable_lc <- land_cover_raster %in% land_cover_suitable_values
-
-# Mask
-suitable_lc_binary <- mask(suitable_lc, CA_proj)
-
-
-### Suitability ###
-# Overlay layers
-suitable <- overlay(slope_binary,
-                    suitable_lc_binary,
-                    fun = function (a,b) {a*b},
-                    progress = 'text')
-
-# Mask
-suitable_masked <- suitable %>% 
-  mask(CA_proj)
-
-# Plot
-plot(suitable_masked)
-
-# Return raster
-return(suitable_masked)
-}
-  
-```
-
-
 # Function to map suitability by county
 ```{r}
 map_suitability_fun <- function(suitable_raster, year) {
@@ -289,11 +238,12 @@ map_suitability_fun <- function(suitable_raster, year) {
 
 # Test functions with 2020 data
 ```{r}
+source("suitable_land.R")
 # Read 2020 land use/land cover raster
 land_cover_2020 <- raster("generated_files/land_cover_2020.tif")
 
 # Test land suitability for all CA function
-suitable_2020 <- suitability_fun(land_cover_raster = land_cover_2020)
+suitable_2020 <- suitable_land(land_cover_raster = land_cover_2020)
 
 # Test mapping by county function
 county_maps_2020 <- map_suitability_fun(suitable_raster = suitable_2020, year = 2020)
@@ -338,6 +288,7 @@ final_score_fun <- function (score_gen,
                              score_econ,
                              score_land,
                              weights = c(1, 1, 1)) {
+  ### FINAL SCORES ###
   # Create a dataframe with all the scores
   scores_df <- left_join(score_gen,
                          left_join(score_econ, score_land, by = "County"),
@@ -349,7 +300,9 @@ final_score_fun <- function (score_gen,
   # Calculate final scores
   for (i in 1:nrow(scores_df)) {
     scores_df$final_score[i] <-
-      weights[1] * scores_df$score_gen[i] + weights[2] * scores_df$score_land[i] + weights[3] * scores_df$score_econ[i]
+      weights[1] * scores_df$score_gen[i] +
+      weights[2] * scores_df$score_land[i] +
+      weights[3] * scores_df$score_econ[i]
   }
   
   
@@ -362,7 +315,7 @@ final_score_fun <- function (score_gen,
   county_scores <- counties_proj %>%
     left_join(scores_df, by = "County")
   
-  # Final map
+  # Create map
   final_score_map <- ggplot() +
     geom_sf(
       data = county_scores,
