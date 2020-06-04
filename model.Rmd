@@ -1,0 +1,23 @@
+---
+title: "Model Example"
+author: "AnnaClaire Marley"
+date: "6/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Projected Solar Panel Energy Output Model
+
+
+## Sensitivity Analysis
+
+
+
+## Projected Solar Land Suitability Model
+
+
+## Economic Model
