@@ -20,6 +20,7 @@ library(sf)
 library(paletteer)
 library(stringr)
 library(RColorBrewer)
+library(ggspatial)
 ```
 
 **Path to functions for the model**
@@ -183,9 +184,24 @@ source(paste0(model_path, "final_score.R"))
 
 ### Final score for year 2020
 ```{r}
+# Get scores from 3 submodels
+# Energy generation
+score_gen_df <- as.data.frame(county_energy_sp) %>% 
+  dplyr::select(county, score) %>% 
+  rename(County = county, score_gen = score)
+
+# Economic
+
+
+
+# Land suitability
+score_land_df <- county_maps_2020[[4]]
+  
 # Use score outputs from the 3 submodels as inputs for the final score function
 final_score_df <-
-  final_score(score_gen, score_econ, county_maps_2020[[4]])
+  final_score(score_gen = score_gen_df,
+              score_econ = score_econ_df,
+              score_land = score_land_df)
 
 # Look at map
 final_score_df[[2]]
