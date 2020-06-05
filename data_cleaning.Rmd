@@ -202,7 +202,12 @@ property_tax_tmp <- raw_df %>%
 county_tmp <- county_project %>% 
   mutate(strCounty = str_to_title(str_remove(ID, "california,")))
 
-property_tax <- full_join(county_tmp, property_tax_tmp)
+property_tax <- full_join(county_tmp, property_tax_tmp) %>% 
+  dplyr::select(strCounty, ABBREV, FIPS, intYrTo, intLand) %>% 
+  filter(intYrTo == 2020) %>% 
+  mutate(area = st_area(.)) %>% 
+  mutate(unitLand = as.numeric(intLand/area)) %>% 
+  dplyr::select(strCounty, unitLand)
 
 # save shapefile
 st_write(property_tax,"generated_files/property_tax.shp", delete_layer = TRUE)
