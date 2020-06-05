@@ -192,6 +192,20 @@ writeRaster(x = slope_small, filename = paste0(out,"slope_CA.tif"), overwrite = 
 
 # cleaning -- Economic model
 
+```{r, warning=FALSE}
+#Read in property tax shape file
+raw_df <- read_sf(dsn = paste0(path, "/PropertyTaxes"), layer = "BOE_PropertyTaxes")
 
+property_tax_tmp <- raw_df %>% 
+  st_drop_geometry()
+
+county_tmp <- county_project %>% 
+  mutate(strCounty = str_to_title(str_remove(ID, "california,")))
+
+property_tax <- full_join(county_tmp, property_tax_tmp)
+
+# save shapefile
+st_write(property_tax,"generated_files/property_tax.shp", delete_layer = TRUE)
+```
 
 

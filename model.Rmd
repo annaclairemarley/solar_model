@@ -134,6 +134,25 @@ ggplot(st_as_sf(county_energy_sp)) +
 
 ```
 
+% change is solar insolation
+```{r}
+s_2020 <- raster("./generated_files/solar_raster_2020.tif")
+s_2050 <- raster("./generated_files/solar_raster_2050.tif")
+
+# calculate
+
+per_change <- ((s_2050 - s_2020)/s_2020)*100
+
+# convert to df for plotting 
+per_change_df <- raster::as.data.frame(per_change, xy = TRUE)
+
+cols <- brewer.pal(n = 10, "Spectral")
+
+plot(per_change, col = rev(cols),
+     main = "Percent Change in Solar Energy Output 2020 to 2050",
+      axes = FALSE)
+
+```
 
 ## Sensitivity Analysis
 

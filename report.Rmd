@@ -10,12 +10,12 @@ header-includes:
 output:
   pdf_document:
     number_sections: no
+    fig_caption: yes
   html_document:
     df_print: paged
   word_document: default
 urlcolor: blue
 ---
-
 \text{\bfseries\LARGE{Solar Suitability Model}}
 \newline
 \text{\Large{AnnaClaire Marley, Anna Calle, Ted Jiang}}
@@ -24,3 +24,28 @@ urlcolor: blue
 \newline
 \noindent\makebox[\linewidth]{\rule{\textwidth}{0.4pt}}
 
+```{r, include = FALSE}
+library(knitr)
+```
+
+### Solar Energy Output Submodel
+
+We downloaded raster data from Cal-Adapt using the the CCSM3 climate model under an A2 emissions scenario. To create the solar energy output submodel we used projected monthly minimumum, maximum, and average temperatures as well as net solar insolation data in California for 2020 and 2050. Running this submodel for two different years allows us to conduct analyses on projected change in solar energy output across California. For example, from 2020 to 2050 we can see that generally solar energy output is projected to increase in Northern California and decrease in southeastern California (Figure 1).
+
+```{r, out.width = "80%", fig.align= "center", echo=FALSE}
+include_graphics("./Images/solar_per_change_20-50.png")
+```
+
+\begin{center}
+\textbf{Figure 1.} Percent change in solar energy output 2020 to 2050.
+\end{center}
+
+To make our final solar suitability map of California for 2020, we needed to average solar energy output by county (Figure 2). 
+
+```{r, out.width = "80%", fig.align= "center", echo=FALSE}
+include_graphics("./Images/County_solar_energy_20.png")
+```
+
+\begin{center}
+\textbf{Figure 2.} Average solar energy output by county in 2020.
+\end{center}

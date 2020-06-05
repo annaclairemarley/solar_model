@@ -324,7 +324,9 @@ per_change_df <- raster::as.data.frame(per_change, xy = TRUE)
 
 cols <- brewer.pal(n = 10, "Spectral")
 
-plot(per_change, col = rev(cols))
+plot(per_change, col = rev(cols),
+     main = "Percent Change in Solar Energy Output 2020 to 2050",
+      axes = FALSE)
 
 ```
 
