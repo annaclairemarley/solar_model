@@ -5,10 +5,12 @@ date: "5/17/2020"
 output: html_document
 ---
 
-Data is separated into:
+Data saved in google drive through file stream is separated into:
 - Raw: raw data as downloaded
 - In: renamed data used in R
 - Out: data saved from R
+
+Data required to run functions has been added to the generated_files function
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -104,149 +106,21 @@ plot(slope_small)
 writeRaster(x = slope_small, filename = paste0(out,"slope_CA.tif"), overwrite = T)
 ```
 
-# Land cover USGS
-
-Land use/land cover (LULC) class identification code. 
-01 = Water, 
-02 = Developed, 
-03 = Transportation/Other Developed, 
-04 = Mining (not used), 
-05 = Barren, **
-06 = Forest, 
-07 = Grassland, **
-08 = Annual Agriculture, 
-09 = Wetlands, 
-10 = Shrublands, **
-11 = SnowIce, 
-12 = Perennial Agriculture
-
-# Function to map suitability by county
-```{r}
-map_suitability_fun <- function(suitable_raster, year) {
-  
-  ### Map of suitable raster with county boundaries ###
-  # Read CA counties file
-  counties_proj <- read_sf(dsn = "generated_files/",
-                           layer = "counties_proj")
-  
-  # Read CA file
-  CA_proj <- read_sf(dsn = "generated_files/",
-                     layer = "counties_proj")
-  
-  # Get paletteer colors
-  colors <- paletteer_c("ggthemes::Temperature Diverging", n = 2)
-  
-  # Convert suitable raster to data frame
-  suitable_df <- as.data.frame(suitable_raster, xy = TRUE)
-  
-  # Map
-  suitable_raster_map <- ggplot() +
-  geom_raster(data = suitable_df,
-               mapping = aes(x = x, y = y,  fill = factor(layer))) +
-   scale_fill_manual(name = "",
-                     values=c(colors[1], colors[2]),
-                     labels=c("Excluded", "Suitable", "")) +
-  geom_sf(data = counties_proj,
-          fill = "transparent",
-          color = "gray30", 
-          size = 0.1) +
-   theme_minimal() +
-  coord_sf(datum=NA) +
-  labs(x = "", y = "", title = paste0("Suitable Land in CA by County in ", year)) +
-  annotation_scale(location = "bl", style = "ticks") # scale bar
-  
-  
-  ### Calculating % of suitable land by county ###
-  # Add suitable area column
-  counties_proj$suitable_area <- NA
-  
-  # Add suitable area percentage column
-  counties_proj$suitable_pct <- NA
-  
-  # Loop through each county
-  for (i in 1:nrow(counties_proj)) {
-  
-    # Select ith county
-    county <- counties_proj[i, ]
-    
-    # Crop
-    suitable_cropped <- crop(suitable_raster, county)
-    
-    # Mask
-    suitable_masked <- mask(suitable_cropped, county, progress = 'text')
-    
-    # Count suitable cells
-    count <-  freq(suitable_masked, value = 1)
-    
-    # Calculate area (number of cells * cell resolution)
-    counties_proj$suitable_area[i] <- count * 1000 * 1000
-    
-    # Calculate area percentage
-    counties_proj$suitable_pct[i] <- counties_proj$suitable_area[i] / counties_proj$area[i] * 100
-  }
-  
-  ### Map percent suitable by county ###
-  # Map
-  suitable_pct_map <- ggplot() +
-    geom_sf(
-      data = counties_proj,
-      color = "gray30",
-      size = 0.1,
-      aes(fill = counties_proj$suitable_pct)) +
-    scale_fill_paletteer_c("ggthemes::Temperature Diverging",
-                            name = "Suitable Land (%)") +
-    theme_minimal() +
-    coord_sf(datum = NA) +
-    labs(x = "", y = "", title = paste0("Suitable Land in CA by County in ", year)) +
-    annotation_scale(location = "bl", style = "ticks") # scale bar
-  
-  ### Calculating county rankings (scores) ###
-  # Create scores column
-  counties_proj$score_land <- NA
-  
-  # Rank counties by % of suitable land
-  counties_proj$score_land[order(counties_proj$suitable_pct)] <-
-    1:nrow(counties_proj)
-  
-  # Rank dataframe
-  counties_scores_df <- as.data.frame(counties_proj) %>%
-    dplyr::select(County, score_land )
-  
-  ### Map rankings ###
-  suitable_rank_map <- ggplot() +
-  geom_sf(data = counties_proj,
-          color = "gray30", 
-          size = 0.1,
-          aes(fill = counties_proj$score_land)) +
-  scale_fill_paletteer_c("ggthemes::Temperature Diverging",
-                         name = "Rank") + 
-  theme_minimal() +
-  coord_sf(datum=NA) +
-  labs(x = "", y = "", title = paste0("Suitable Land in CA by County in ", year)) +
-  annotation_scale(location = "bl", style = "ticks") # scale bar
-  
-  # Return list with rank dataframe, raster map, and % suitable land map
-  return(list(suitable_raster_map,
-              suitable_pct_map,
-              suitable_rank_map,
-              counties_scores_df))
-  
-}
 
 
-```
 
 # Test functions with 2020 data
 ```{r}
-source("suitable_land.R")
+source("suitable_land_CA.R")
+source("suitable_land_counties.R")
 # Read 2020 land use/land cover raster
 land_cover_2020 <- raster("generated_files/land_cover_2020.tif")
 
 # Test land suitability for all CA function
-suitable_2020 <- suitable_land(land_cover_raster = land_cover_2020)
+suitable_2020 <- suitable_land_CA(land_cover_raster = land_cover_2020)
 
 # Test mapping by county function
-county_maps_2020 <- map_suitability_fun(suitable_raster = suitable_2020, year = 2020)
+county_maps_2020 <- suitable_land_counties(suitable_raster = suitable_2020, year = 2020)
 county_maps_2020
 ```
 
@@ -283,110 +157,14 @@ score_econ <- all_scores %>%
 
 # Final score function
 ```{r}
-# Final score function
-final_score_fun <- function (score_gen,
-                             score_econ,
-                             score_land,
-                             weights = c(1, 1, 1)) {
-  ### FINAL SCORES ###
-  # Create a dataframe with all the scores
-  scores_df <- left_join(score_gen,
-                         left_join(score_econ, score_land, by = "County"),
-                         by = "County")
-  
-  # Add final score column
-  scores_df$final_score <- NA
-  
-  # Calculate final scores
-  for (i in 1:nrow(scores_df)) {
-    scores_df$final_score[i] <-
-      weights[1] * scores_df$score_gen[i] +
-      weights[2] * scores_df$score_land[i] +
-      weights[3] * scores_df$score_econ[i]
-  }
-  
-  
-  ### MAP ###
-  # Read CA counties file
-  counties_proj <- read_sf(dsn = "generated_files/",
-                           layer = "counties_proj")
-  
-  # Add scores to counties file
-  county_scores <- counties_proj %>%
-    left_join(scores_df, by = "County")
-  
-  # Create map
-  final_score_map <- ggplot() +
-    geom_sf(
-      data = county_scores,
-      color = "gray30",
-      size = 0.1,
-      aes(fill = county_scores$final_score)
-    ) +
-    scale_fill_paletteer_c("ggthemes::Temperature Diverging",
-                           name = "Score") +
-    theme_minimal() +
-    coord_sf(datum = NA) +
-    labs(x = "", y = "", title = "Best Counties for Solar Farms in 2020") +
-    annotation_scale(location = "bl", style = "ticks") # scale bar
-  
-  # Return dataframe with scores and map
-  return(list(scores_df, final_score_map))
-}
-
+source("final_score.R")
 # Test function
 final_score_df <-
-  final_score_fun(score_gen, score_econ, county_maps_2020[[4]])
+  final_score(score_gen, score_econ, county_maps_2020[[4]])
 
 # Look at map
 final_score_df[[2]]
 
-```
-
-# Masking energy generation to suitability
-```{r}
-# Read files
-s_2020 <- raster("./generated_files/solar_raster_2020.tif")
-s_2050 <- raster("./generated_files/solar_raster_2050.tif")
-
-# Resample
-s_2020_resampled <- resample(s_2020, suitable_2020)
-
-# Overlay
-s_2020_overlay <- raster::overlay(s_2020_resampled,
-                          suitable_2020,
-                          fun = function (a, b){a*b})
-# Convert to dataframe
-s_2020_overlay_df <- raster::as.data.frame(s_2020_overlay, xy = TRUE)
-
-# Replace 0s with NA
-s_2020_overlay_df[s_2020_overlay_df == 0] <- NA
-
-# Map
-masked_2020_map <- ggplot() +
-  geom_sf(data = CA_proj,
-          fill = "gray90",
-          color = "gray30", 
-          size = 0.1) +
-  geom_raster(data = s_2020_overlay_df,
-               mapping = aes(x = x, y = y,  fill = layer))  +
-  scale_fill_paletteer_c("ggthemes::Temperature Diverging",
-                         name = "Energy Output (W/m^2)",
-                          na.value = "transparent"
-                         ) +
-  geom_sf(data = counties_proj,
-          fill = "transparent",
-          color = "gray30", 
-          size = 0.1) +
-   theme_minimal() +
-  coord_sf(datum=NA) +
-  labs(x = "", y = "", title = "Solar Energy in CA (2020)") +
-  annotation_scale(location = "bl", style = "ticks") # scale bar
-
-masked_2020_map
 
 ```
-
-
-
 

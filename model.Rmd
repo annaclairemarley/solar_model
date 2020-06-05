@@ -27,6 +27,13 @@ library(RColorBrewer)
 model_path <- "./Functions/model/"
 ```
 
+# CRS
+```{r}
+# Assign projection: NAD83
+NAD83 <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83
++units=m +no_defs +ellps=GRS80 +towgs84=0,0,0"
+```
+
 # CA counties
 
 ```{r}
@@ -129,9 +136,60 @@ ggplot(st_as_sf(county_energy_sp)) +
 
 ## Sensitivity Analysis
 
-
-
 ## Projected Solar Land Suitability Model
+
+### Source functions
+```{r}
+source(paste0(model_path,"suitable_land_CA.R"))
+source(paste0(model_path,"suitable_land_counties.R"))
+```
+
+### Run functions with 2020 data
+```{r}
+# Read 2020 land use/land cover raster
+land_cover_2020 <- raster("generated_files/land_cover_2020.tif")
+
+# Land suitability raster for all CA 
+suitable_2020 <- suitable_land_CA(land_cover_raster = land_cover_2020)
+
+# Use raster for all CA to get land suitability by county
+county_maps_2020 <- suitable_land_counties(suitable_raster = suitable_2020, year = 2020)
+county_maps_2020
+```
+
+### Run functions with 2050 data
+```{r}
+# Read 2050 land use/land cover raster
+land_cover_2050 <- raster("generated_files/land_cover_2050.tif")
+
+# Land suitability raster for all CA 
+suitable_2050 <- suitable_land_CA(land_cover_raster = land_cover_2050)
+
+# Use raster for all CA to get land suitability by county
+county_maps_2050 <- suitable_land_counties(suitable_raster = suitable_2050, year = 2050)
+county_maps_2050
+```
 
 
 ## Economic Model
+
+
+## Final scores
+
+### Source function
+```{r}
+source(paste0(model_path, "final_score.R"))
+```
+
+### Final score for year 2020
+```{r}
+# Use score outputs from the 3 submodels as inputs for the final score function
+final_score_df <-
+  final_score(score_gen, score_econ, county_maps_2020[[4]])
+
+# Look at map
+final_score_df[[2]]
+```
+
+
+

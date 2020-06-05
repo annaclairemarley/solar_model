@@ -19,6 +19,7 @@ library(maps)
 library(sf)
 ```
 
+
 ```{r}
 # Create a Root to Extract Files 
 if(Sys.info()["sysname"] == "Windows"){ #If operating system is "Windows" use G: Drive
@@ -55,6 +56,9 @@ california <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE)) %>%
 # make the polygon the same CRS as rasters
 california_project <- st_transform(california, NAD83)
 
+# save shapefile (to read inside function)
+st_write(california_project,"generated_files/california_project.shp", delete_layer = TRUE)
+
 ## counties ##
 ca_counties <- st_as_sf(maps::map("county", plot = FALSE, fill = TRUE)) %>% 
   filter(str_detect(ID, 'california'))
@@ -62,6 +66,8 @@ ca_counties <- st_as_sf(maps::map("county", plot = FALSE, fill = TRUE)) %>%
 # make the polygon the same CRS as rasters
 county_project <- st_transform(ca_counties, NAD83)
 
+# save shapefile
+st_write(county_project,"generated_files/county_project.shp", delete_layer = TRUE)
 ```
 
 ## Raster Files cleaning -- Solar Energy Output Model
@@ -158,6 +164,30 @@ writeRaster(tmin_stack_mask,
 
 
 ## Cleaning -- Land suitability Model
+
+# Slope (takes long time to run!)
+```{r}
+# Read files for CA
+slope_a <- raster(paste0(In, "slope_a.tif"))
+slope_b <- raster(paste0(In, "/slope_b.tif"))
+slope_c <- raster(paste0(In, "/slope_c.tif"))
+slope_d <- raster(paste0(In,"/slope_d.tif"))
+
+# Merge files
+slope <- merge(slope_a, slope_b, slope_c, slope_d, progress = 'text')
+
+# Crop and mask
+slope_ca <-ca_crop_mask(slope, california_project)
+
+# Change resolution
+slope_small <- raster::resample(slope_ca, land_cover, method='bilinear')
+
+# Plot
+plot(slope_small)
+
+# Save
+writeRaster(x = slope_small, filename = paste0(out,"slope_CA.tif"), overwrite = T)
+```
 
 
 # cleaning -- Economic model
