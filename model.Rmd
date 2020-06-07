@@ -199,6 +199,8 @@ ggplot(land_value_2019) +
   scale_fill_paletteer_c("ggthemes::Orange") +
   scale_size(guide = "none") + #Removing size legend
   labs(fill = "Land Value ($/m^2)")
+
+ggsave("land_value.png", path = "./Images")
   
 ```
 
@@ -238,6 +240,8 @@ ggplot(df_LCOE) +
   scale_fill_paletteer_c("scico::hawaii", direction = -1) +
   scale_size(guide = "none") + #Removing size legend
   labs(fill = "LCOE ($/MWh)")
+
+ggsave("LCOE.png", path = "./Images")
   
 ```
 

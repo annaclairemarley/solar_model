@@ -49,3 +49,9 @@ include_graphics("./Images/County_solar_energy_20.png")
 \begin{center}
 \textbf{Figure 2.} Average solar energy output by county in 2020.
 \end{center}
+
+### Economic Submodel
+
+For the economic submodel, we first downloaded assessed land value data from CA BOE, and calculated the unit land value (in \[ $/m^2\]) for each county. To do this, we calculated the area of each county, then divided the total value by the area.
+
+Then, we got the instant cost ()
