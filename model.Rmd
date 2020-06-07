@@ -219,7 +219,7 @@ df_LCOE <- full_join(solar_energy_simple, land_value_2019)
 ```
 
 ```{r}
-source("LCOE.R")
+source(paste0(model_path,"LCOE.R"))
 
 df_LCOE <- df_LCOE %>% 
   mutate(LCOE = LCOE(gen = energy_output, size = 20000, total_om = 8.12, instant_cost = 1585, installed_cost = 1861, land_cost = unitLand)) %>% 

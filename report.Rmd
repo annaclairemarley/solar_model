@@ -41,14 +41,14 @@ include_graphics("./Images/solar_per_change_20-50.png")
 \textbf{Figure 1.} Percent change in solar energy output 2020 to 2050.
 \end{center}
 
-To make our final solar suitability map of California for 2020, we needed to average solar energy output by county (Figure 2). 
+To make our final solar suitability map of California, we needed to average solar energy output by county. Figure 2 illustrates that by 2050, the relative difference in solar energy output between northern and southern California decreases. Therefore, siting solar farms farther north in the State may become more attractive in the future. 
 
-```{r, out.width = "80%", fig.align= "center", echo=FALSE}
-include_graphics("./Images/County_solar_energy_20.png")
+```{r, out.width = "90%", fig.align= "center", echo=FALSE}
+include_graphics("./Images/both_counties.png")
 ```
 
 \begin{center}
-\textbf{Figure 2.} Average solar energy output by county in 2020.
+\textbf{Figure 2.} Average solar energy output by county in 2020 and 2050.
 \end{center}
 
 ### Sensitivity Analysis on Solar Output
