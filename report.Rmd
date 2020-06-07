@@ -76,6 +76,18 @@ include_graphics("./Images/sensitivity_2.png")
 The analysis shows that the energy output is sensitive to *B*, *$c_1$*, *$c_2$*, and *$c_3$*
 , but not very sensitive to *g*. The choice for PV panel material, PV panel design, and emprical equation would all affect the parameters. Hence, it is important to record the changes in *B*, *$c_1$*, *$c_2$*, and *$c_3$* when using this model for a different type of solar farm.
 
+### Land Suitability Submodel
+
+To identify suitable areas for utility-scale solar farms in California we created two functions. The first function produces a raster of all suitable cells in California. It takes slope threshold (%), a land cover raster, and a vector of suitable land cover categories as inputs. We used a default slope threshold of 5%, USGS land change projections, and we considered barren, grasslands, and shrublands as the default suitable categories. The second function takes the output of the first and produces a map of percentage of suitable area by county. We ran these two functions with land cover projections for the years 2020 and 2050. The results (Figure 5) show that the counties with the largest amount of suitable land are located in the southeastern portion of California, where a large portion of land that is desert.
+
+```{r, out.width = "80%", fig.align= "center", echo=FALSE}
+include_graphics("./Images/land_2020_2050.png")
+```
+
+\begin{center}
+\textbf{Figure 5.} Percentage of suitable land available by county in 2020 and 2050.
+\end{center}
+
 ### Economic Submodel
 
 For the economic submodel, we first downloaded assessed land value data from CA BOE, and calculated the unit land value ($c_{unit land}$, in $\$/m^2$) for each county. To do this, we calculated the area of each county, then divided the total value by the area.
@@ -90,12 +102,24 @@ With all these inputs, we used the following equation to calculate the levelized
 LCOE = \frac{(A*gen_{unit}*c_{instant}+A*gen_{unit}*c_{installed}+A*t*gen_{unit}*c_{om}+A*c_{unit land})}{A*t*gen_{unit}}
 \end{equation}
 
-Figure 5 shows the result LCOE for each county in California.
+Figure 6 shows the result LCOE for each county in California.
 
 ```{r, out.width = "80%", fig.align= "center", echo=FALSE}
 include_graphics("./Images/LCOE.png")
 ```
 
 \begin{center}
-\textbf{Figure 5.} LCOE for assumed solar farm for each county in California.
+\textbf{Figure 6.} LCOE for assumed solar farm for each county in California.
+\end{center}
+
+### Solar Suitability Score
+
+The final step of our model is to take scores from each submodel and calculate a final suitability score. To do this, we created a function that allows us to change the weights of the score for each submodel. Figure 7 shows the output of this function using equal weights for the year 2020
+
+```{r, out.width = "50%", fig.align= "center", echo=FALSE}
+include_graphics("./Images/best_counties_2020.png")
+```
+
+\begin{center}
+\textbf{Figure 7.} Final solar suitability scores for counties in CA for the year 2020.
 \end{center}
