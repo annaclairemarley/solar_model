@@ -51,6 +51,31 @@ include_graphics("./Images/County_solar_energy_20.png")
 \textbf{Figure 2.} Average solar energy output by county in 2020.
 \end{center}
 
+### Sensitivity Analysis on Solar Output
+
+We tested the sensitivity of the year-round average energy output for the county with maximum output to the five different material parameters *B*, *g*, *$c_1$*, *$c_2$*, and *$c_3$*. We used the Latin hypercube method with 2000 iterations, and assumed all five parameters follow a normal distribution with 25% standard deviation.
+
+Figure 3 shows the five parameter-output correlation plots. Figure 4 shows the partial rank correlation plot for the five parameters.
+
+```{r, out.width = "80%", fig.align= "center", echo=FALSE}
+include_graphics("./Images/sensitivity_1.png")
+```
+
+\begin{center}
+\textbf{Figure 3.} Parameter-output correlation plots for the five material parameters.
+\end{center}
+
+```{r, out.width = "80%", fig.align= "center", echo=FALSE}
+include_graphics("./Images/sensitivity_2.png")
+```
+
+\begin{center}
+\textbf{Figure 4.} Partial rank correlation plot for the five parameters.
+\end{center}
+
+The analysis shows that the energy output is sensitive to *B*, *$c_1$*, *$c_2$*, and *$c_3$*
+, but not very sensitive to *g*. The choice for PV panel material, PV panel design, and emprical equation would all affect the parameters. Hence, it is important to record the changes in *B*, *$c_1$*, *$c_2$*, and *$c_3$* when using this model for a different type of solar farm.
+
 ### Economic Submodel
 
 For the economic submodel, we first downloaded assessed land value data from CA BOE, and calculated the unit land value ($c_{unit land}$, in $\$/m^2$) for each county. To do this, we calculated the area of each county, then divided the total value by the area.
@@ -59,6 +84,18 @@ Then, we got the instant cost ($c_{instant}: \$1585/kW$), the installed cost ($c
 
 Finally, we took the energy generation from the solar energy submodel ($gen_{unit}$).
 
+With all these inputs, we used the following equation to calculate the levelized cost of electricty (LCOE) using the following equation.
+
 \begin{equation}
 LCOE = \frac{(A*gen_{unit}*c_{instant}+A*gen_{unit}*c_{installed}+A*t*gen_{unit}*c_{om}+A*c_{unit land})}{A*t*gen_{unit}}
 \end{equation}
+
+Figure 5 shows the result LCOE for each county in California.
+
+```{r, out.width = "80%", fig.align= "center", echo=FALSE}
+include_graphics("./Images/LCOE.png")
+```
+
+\begin{center}
+\textbf{Figure 5.} LCOE for assumed solar farm for each county in California.
+\end{center}
