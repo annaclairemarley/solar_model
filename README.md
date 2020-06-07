@@ -21,12 +21,14 @@ This model creates a projected solar suitability score for each county in Califo
 
 <code>Functions/</code>: Folder of functions used in this model. Includes both data cleaning and model functions
 
-<code>Images</code>: Graphs and maps generated in this model
+<code>Images/</code>: Graphs and maps generated in this model
 
 <code>Scrath_Rmds</code>: Scratch code used to initially create this model. Not necessary to actually run model
 
 
-## Energy Generation
+## Solar Energy Generation Submodel
+Intakes projected minimum, maximum, and average temperature data as well as net solar radiation data from [Cal-Adapt](http://v1.cal-adapt.org/data/download/) to create a raster of projected solar energy in California. 
+
 
 ## Land Suitability
 [USGS data](https://www.usgs.gov/centers/wgsc/science/california-land-change-projections?qt-science_center_objects=0#qt-science_center_objects)
