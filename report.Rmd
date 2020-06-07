@@ -26,6 +26,7 @@ urlcolor: blue
 
 ```{r, include = FALSE}
 library(knitr)
+options(tinytex.verbose = TRUE)
 ```
 
 ### Solar Energy Output Submodel
@@ -52,6 +53,12 @@ include_graphics("./Images/County_solar_energy_20.png")
 
 ### Economic Submodel
 
-For the economic submodel, we first downloaded assessed land value data from CA BOE, and calculated the unit land value (in \[ $/m^2\]) for each county. To do this, we calculated the area of each county, then divided the total value by the area.
+For the economic submodel, we first downloaded assessed land value data from CA BOE, and calculated the unit land value ($c_{unit land}$, in $\$/m^2$) for each county. To do this, we calculated the area of each county, then divided the total value by the area.
 
-Then, we got the instant cost ()
+Then, we got the instant cost ($c_{instant}: \$1585/kW$), the installed cost ($c_{installed}: \$1861/kW$), and the O&M cost ($c_{om}:\$8.12/MWh$) from the CA Energy Conmission. We assumed to install a $20000 m^2$) (A) solar farm in every county (about 5 acres), which will operate for 10 years (t).
+
+Finally, we took the energy generation from the solar energy submodel ($gen_{unit}$).
+
+\begin{equation}
+LCOE = \frac{(A*gen_{unit}*c_{instant}+A*gen_{unit}*c_{installed}+A*t*gen_{unit}*c_{om}+A*c_{unit land})}{A*t*gen_{unit}}
+\end{equation}
