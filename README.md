@@ -5,7 +5,7 @@
   * [Solar Energy Generation Submodel](#solar-energy-generation-submodel)
   * [Land Suitability Submodel](#land-suitability-submodel)
   * [Economics Submodel](#economics-submodel)
-  * [Final scores](#final-scores)
+  * [Final Scores](#final-scores)
 
 # Usage
 
